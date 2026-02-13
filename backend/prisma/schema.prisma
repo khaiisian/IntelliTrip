@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js",
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -19,6 +19,7 @@ model tbl_attraction {
   category_id               Int                         @db.UnsignedInt
   created_at                DateTime                    @default(now()) @db.DateTime(0)
   modified_at               DateTime                    @default(now()) @db.DateTime(0)
+  is_deleted                Boolean                     @default(false)
   tbl_category              tbl_category                @relation(fields: [category_id], references: [category_id], onUpdate: Restrict, map: "tbl_attraction_ibfk_1")
   tbl_attraction_experience tbl_attraction_experience[]
   tbl_itinerary_item        tbl_itinerary_item[]
@@ -33,6 +34,7 @@ model tbl_attraction_experience {
   best_time_start         DateTime       @db.Time(0)
   best_time_end           DateTime       @db.Time(0)
   experience_score_weight Float          @db.Float
+  is_deleted              Boolean        @default(false)
   tbl_attraction          tbl_attraction @relation(fields: [attraction_id], references: [attraction_id], onUpdate: Restrict, map: "tbl_attraction_experience_ibfk_1")
 
   @@index([attraction_id], map: "attraction_id")
@@ -43,6 +45,7 @@ model tbl_category {
   category_name       String                @unique(map: "category_name") @db.VarChar(255)
   created_at          DateTime              @default(now()) @db.DateTime(0)
   modified_at         DateTime              @default(now()) @db.DateTime(0)
+  is_deleted          Boolean               @default(false)
   tbl_attraction      tbl_attraction[]
   tbl_trip_preference tbl_trip_preference[]
 }
@@ -52,6 +55,7 @@ model tbl_itinerary {
   trip_id            Int                  @db.UnsignedInt
   generated_at       DateTime             @default(now()) @db.DateTime(0)
   total_cost         Decimal              @db.Decimal(10, 2)
+  is_deleted         Boolean              @default(false)
   tbl_trip           tbl_trip             @relation(fields: [trip_id], references: [trip_id], onUpdate: Restrict, map: "tbl_itinerary_ibfk_1")
   tbl_itinerary_item tbl_itinerary_item[]
 
@@ -67,6 +71,7 @@ model tbl_itinerary_item {
   attraction_id          Int            @db.UnsignedInt
   distance_from_previous Decimal        @db.Decimal(8, 2)
   final_score            Float          @db.Float
+  is_deleted             Boolean        @default(false)
   tbl_itinerary          tbl_itinerary  @relation(fields: [itinerary_id], references: [itinerary_id], onUpdate: Restrict, map: "tbl_itinerary_item_ibfk_1")
   tbl_attraction         tbl_attraction @relation(fields: [attraction_id], references: [attraction_id], onUpdate: Restrict, map: "tbl_itinerary_item_ibfk_2")
 
@@ -87,6 +92,7 @@ model tbl_trip {
   user_id             Int                   @db.UnsignedInt
   created_at          DateTime              @default(now()) @db.DateTime(0)
   modified_at         DateTime              @default(now()) @db.DateTime(0)
+  is_deleted          Boolean               @default(false)
   tbl_itinerary       tbl_itinerary[]
   tbl_user            tbl_user              @relation(fields: [user_id], references: [user_id], onUpdate: Restrict, map: "tbl_trip_ibfk_1")
   tbl_trip_preference tbl_trip_preference[]
@@ -99,6 +105,7 @@ model tbl_trip_preference {
   trip_id           Int          @db.UnsignedInt
   category_id       Int          @db.UnsignedInt
   preference_weight Float        @db.Float
+  is_deleted        Boolean      @default(false)
   tbl_trip          tbl_trip     @relation(fields: [trip_id], references: [trip_id], onUpdate: Restrict, map: "tbl_trip_preference_ibfk_1")
   tbl_category      tbl_category @relation(fields: [category_id], references: [category_id], onUpdate: Restrict, map: "tbl_trip_preference_ibfk_2")
 
@@ -107,11 +114,13 @@ model tbl_trip_preference {
 }
 
 model tbl_user {
-  user_id     Int        @id @default(autoincrement()) @db.UnsignedInt
-  user_name   String     @db.VarChar(255)
-  email       String     @unique(map: "email") @db.VarChar(255)
-  password    String     @db.VarChar(255)
-  created_at  DateTime   @default(now()) @db.DateTime(0)
-  modified_at DateTime   @default(now()) @db.DateTime(0)
-  tbl_trip    tbl_trip[]
+  user_id       Int        @id @default(autoincrement()) @db.UnsignedInt
+  user_name     String     @db.VarChar(255)
+  email         String     @unique(map: "email") @db.VarChar(255)
+  password      String     @db.VarChar(255)
+  profile_image String?    @db.VarChar(255)
+  is_deleted    Boolean    @default(false)
+  created_at    DateTime   @default(now()) @db.DateTime(0)
+  modified_at   DateTime   @default(now()) @db.DateTime(0)
+  tbl_trip      tbl_trip[]
 }
