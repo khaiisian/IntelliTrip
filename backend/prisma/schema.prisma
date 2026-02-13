@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js",
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model tbl_attraction {
+  attraction_id             Int                         @id @default(autoincrement()) @db.UnsignedInt
+  attraction_name           String                      @db.VarChar(255)
+  latitude                  Decimal                     @db.Decimal(9, 6)
+  longitude                 Decimal                     @db.Decimal(9, 6)
+  cost                      Decimal                     @db.Decimal(10, 2)
+  duration_minutes          Int
+  open_time                 DateTime                    @db.Time(0)
+  close_time                DateTime                    @db.Time(0)
+  category_id               Int                         @db.UnsignedInt
+  created_at                DateTime                    @default(now()) @db.DateTime(0)
+  modified_at               DateTime                    @default(now()) @db.DateTime(0)
+  tbl_category              tbl_category                @relation(fields: [category_id], references: [category_id], onUpdate: Restrict, map: "tbl_attraction_ibfk_1")
+  tbl_attraction_experience tbl_attraction_experience[]
+  tbl_itinerary_item        tbl_itinerary_item[]
+
+  @@index([category_id], map: "category_id")
+}
+
+model tbl_attraction_experience {
+  experience_id           Int            @id @default(autoincrement()) @db.UnsignedInt
+  attraction_id           Int            @db.UnsignedInt
+  experience_type         String         @db.VarChar(100)
+  best_time_start         DateTime       @db.Time(0)
+  best_time_end           DateTime       @db.Time(0)
+  experience_score_weight Float          @db.Float
+  tbl_attraction          tbl_attraction @relation(fields: [attraction_id], references: [attraction_id], onUpdate: Restrict, map: "tbl_attraction_experience_ibfk_1")
+
+  @@index([attraction_id], map: "attraction_id")
+}
+
+model tbl_category {
+  category_id         Int                   @id @default(autoincrement()) @db.UnsignedInt
+  category_name       String                @unique(map: "category_name") @db.VarChar(255)
+  created_at          DateTime              @default(now()) @db.DateTime(0)
+  modified_at         DateTime              @default(now()) @db.DateTime(0)
+  tbl_attraction      tbl_attraction[]
+  tbl_trip_preference tbl_trip_preference[]
+}
+
+model tbl_itinerary {
+  itinerary_id       Int                  @id @default(autoincrement()) @db.UnsignedInt
+  trip_id            Int                  @db.UnsignedInt
+  generated_at       DateTime             @default(now()) @db.DateTime(0)
+  total_cost         Decimal              @db.Decimal(10, 2)
+  tbl_trip           tbl_trip             @relation(fields: [trip_id], references: [trip_id], onUpdate: Restrict, map: "tbl_itinerary_ibfk_1")
+  tbl_itinerary_item tbl_itinerary_item[]
+
+  @@index([trip_id], map: "trip_id")
+}
+
+model tbl_itinerary_item {
+  item_id                Int            @id @default(autoincrement()) @db.UnsignedInt
+  itinerary_id           Int            @db.UnsignedInt
+  day_number             Int
+  visit_start_time       DateTime       @db.Time(0)
+  visit_end_time         DateTime       @db.Time(0)
+  attraction_id          Int            @db.UnsignedInt
+  distance_from_previous Decimal        @db.Decimal(8, 2)
+  final_score            Float          @db.Float
+  tbl_itinerary          tbl_itinerary  @relation(fields: [itinerary_id], references: [itinerary_id], onUpdate: Restrict, map: "tbl_itinerary_item_ibfk_1")
+  tbl_attraction         tbl_attraction @relation(fields: [attraction_id], references: [attraction_id], onUpdate: Restrict, map: "tbl_itinerary_item_ibfk_2")
+
+  @@index([attraction_id], map: "attraction_id")
+  @@index([itinerary_id], map: "itinerary_id")
+}
+
+model tbl_trip {
+  trip_id             Int                   @id @default(autoincrement()) @db.UnsignedInt
+  trip_name           String                @db.VarChar(255)
+  start_lat           Decimal               @db.Decimal(9, 6)
+  start_lng           Decimal               @db.Decimal(9, 6)
+  end_lat             Decimal               @db.Decimal(9, 6)
+  end_lng             Decimal               @db.Decimal(9, 6)
+  start_date          DateTime              @db.Date
+  end_date            DateTime              @db.Date
+  budget              Decimal               @db.Decimal(10, 2)
+  user_id             Int                   @db.UnsignedInt
+  created_at          DateTime              @default(now()) @db.DateTime(0)
+  modified_at         DateTime              @default(now()) @db.DateTime(0)
+  tbl_itinerary       tbl_itinerary[]
+  tbl_user            tbl_user              @relation(fields: [user_id], references: [user_id], onUpdate: Restrict, map: "tbl_trip_ibfk_1")
+  tbl_trip_preference tbl_trip_preference[]
+
+  @@index([user_id], map: "user_id")
+}
+
+model tbl_trip_preference {
+  trip_pref_id      Int          @id @default(autoincrement()) @db.UnsignedInt
+  trip_id           Int          @db.UnsignedInt
+  category_id       Int          @db.UnsignedInt
+  preference_weight Float        @db.Float
+  tbl_trip          tbl_trip     @relation(fields: [trip_id], references: [trip_id], onUpdate: Restrict, map: "tbl_trip_preference_ibfk_1")
+  tbl_category      tbl_category @relation(fields: [category_id], references: [category_id], onUpdate: Restrict, map: "tbl_trip_preference_ibfk_2")
+
+  @@index([category_id], map: "category_id")
+  @@index([trip_id], map: "trip_id")
+}
+
+model tbl_user {
+  user_id     Int        @id @default(autoincrement()) @db.UnsignedInt
+  user_name   String     @db.VarChar(255)
+  email       String     @unique(map: "email") @db.VarChar(255)
+  password    String     @db.VarChar(255)
+  created_at  DateTime   @default(now()) @db.DateTime(0)
+  modified_at DateTime   @default(now()) @db.DateTime(0)
+  tbl_trip    tbl_trip[]
+}
