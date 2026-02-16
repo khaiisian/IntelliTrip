@@ -7,7 +7,9 @@ app.use(cors());
 app.use(express.json());
 
 const userRoutes = require('../routes/user.routes');
+const categoryRoutes = require('../routes/category.routes');
 
 app.use('/', userRoutes);
+app.use('/api', categoryRoutes);
 
 module.exports = app;

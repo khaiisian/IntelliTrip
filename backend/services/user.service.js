@@ -1,7 +1,6 @@
 const userRepo = require('../repositories/user.repository');
 const userResponse = require('../models/users/user.response');
 const { CreateUserRequest, UpdateUserRequest } = require('../models/users/user.model');
-const UserResponse = require('../models/users/user.response');
 
 exports.getUsers = async () => {
     const users = await userRepo.getAllUsers();
@@ -39,5 +38,5 @@ exports.updateUser = async (id, payload) => {
 exports.deleteUser = async (id) => {
     const user = await userRepo.delete(id);
 
-    return new UserResponse(user);
+    return new userResponse(user);
 }

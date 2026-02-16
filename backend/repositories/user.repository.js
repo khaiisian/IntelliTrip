@@ -24,14 +24,14 @@ exports.create = async (data) => {
 
 exports.update = async (id, data) => {
     return await prisma.tbl_user.update({
-        where: { user_id: Number(id) },
+        where: { user_id: Number(id), is_deleted: false },
         data
     })
 }
 
 exports.delete = async (id) => {
     return await prisma.tbl_user.update({
-        where: { user_id: Number(id) },
+        where: { user_id: Number(id), is_deleted: false },
         data: { is_deleted: true }
     })
 }
