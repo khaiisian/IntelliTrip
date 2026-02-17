@@ -1,37 +1,37 @@
 const prisma = require('../src/prisma');
 
-exports.getAllUsers = async () => {
+exports.findAll = async () => {
     return await prisma.tbl_user.findMany({
         where: { is_deleted: false }
     });
 }
 
-exports.findById = async (id) => {
+exports.findByCode = async (code) => {
     return await prisma.tbl_user.findFirst({
-        where: { user_id: Number(id), is_deleted: false }
-    })
+        where: { user_code: code, is_deleted: false }
+    });
 }
 
 exports.findByEmail = async (email) => {
     return await prisma.tbl_user.findFirst({
-        where: { password: String(email), is_deleted: false }
-    })
+        where: { email: email.toLowerCase(), is_deleted: false }
+    });
 }
 
 exports.create = async (data) => {
     return await prisma.tbl_user.create({ data });
 }
 
-exports.update = async (id, data) => {
+exports.update = async (code, data) => {
     return await prisma.tbl_user.update({
-        where: { user_id: Number(id), is_deleted: false },
+        where: { user_code: code },
         data
-    })
+    });
 }
 
-exports.delete = async (id) => {
+exports.remove = async (code) => {
     return await prisma.tbl_user.update({
-        where: { user_id: Number(id), is_deleted: false },
+        where: { user_code: code },
         data: { is_deleted: true }
-    })
+    });
 }

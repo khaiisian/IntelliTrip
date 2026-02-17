@@ -8,34 +8,57 @@ exports.getCategories = async () => {
     return categories.map(x => new CategoryResponse(x));
 }
 
-exports.getCategoryById = async (id) => {
-    const category = await categoryRepository.findById(id);
-    if (!category) return new Error('Category not found');
+exports.getCategoryByCode = async (code) => {
+    const category = await categoryRepository.findByCode(code);
+    if (!category) throw { status: false, statusCode: 404, message: 'Category not found' };
     return new CategoryResponse(category);
 }
 
 exports.createCategory = async (payload) => {
     const request = new CreateCategoryRequest(payload);
 
-    const existing = await categoryRepository.findAll();
-    if (existing.some(x => x.category_name.toLowerCase() === request.category_name.toLowerCase())) {
-        throw new Error("Category name already exists.");
+    // Trim and normalize
+    request.category_name = request.category_name.trim();
+
+    // Check for duplicate name (case-insensitive)
+    const existing = await categoryRepository.findByName(request.category_name);
+    if (existing) {
+        throw {
+            status: false,
+            statusCode: 409,
+            message: 'Category name already exists'
+        };
     }
 
-    const category_code = await generateCategoryCode();
-    request.category_code = category_code;
+    // Generate category code
+    request.category_code = await generateCode('tbl_category', 'category_code', 'CAT');
 
     const category = await categoryRepository.create(request);
     return new CategoryResponse(category);
 }
 
-exports.updateCategory = async (id, payload) => {
+exports.updateCategory = async (code, payload) => {
     const request = new UpdateCategoryRequest(payload);
-    const category = await categoryRepository.update(id, request);
+    if (request.category_name) request.category_name = request.category_name.trim();
+
+    const existing = await categoryRepository.findByCode(code);
+    if (!existing) throw { status: false, statusCode: 404, message: 'Category not found' };
+
+    if (request.category_name) {
+        const duplicate = await categoryRepository.findByName(request.category_name);
+        if (duplicate && duplicate.category_code !== code) {
+            throw { status: false, statusCode: 409, message: 'Category name already exists' };
+        }
+    }
+
+    const category = await categoryRepository.updateByCode(code, request);
     return new CategoryResponse(category);
 }
 
-exports.deleteCategory = async (id) => {
-    const category = await categoryRepository.remove(id);
+exports.deleteCategory = async (code) => {
+    const existing = await categoryRepository.findByCode(code);
+    if (!existing) throw { status: false, statusCode: 404, message: 'Category not found' };
+
+    const category = await categoryRepository.removeByCode(code);
     return new CategoryResponse(category);
 }

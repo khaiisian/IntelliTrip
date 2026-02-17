@@ -7,3 +7,5 @@ class CategoryResponse {
         this.modified_at = category.modified_at;
     }
 }
+
+module.exports = CategoryResponse;

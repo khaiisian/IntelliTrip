@@ -7,7 +7,7 @@ const prisma = require('../prisma');
  * @param {number} padLength 
  * @returns {Promise<string>}
  */
-const generateCode = async (tableName, columnName, prefix, padLength = 3) => {
+const generateCode = async (tableName, columnName, prefix, padLength = 4) => {
     const lastRecord = await prisma[tableName].findFirst({
         orderBy: { [columnName.replace('_code', '_id')]: 'desc' },
         select: { [columnName]: true }
