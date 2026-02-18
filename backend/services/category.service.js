@@ -17,43 +17,47 @@ exports.getCategoryByCode = async (code) => {
 exports.createCategory = async (payload) => {
     const request = new CreateCategoryRequest(payload);
 
-    // Trim and normalize
-    request.category_name = request.category_name.trim();
+    request.category_name = request.category_name?.trim();
+    if (!request.category_name)
+        throw { status: false, statusCode: 400, message: 'Category name is required' };
 
-    // Check for duplicate name (case-insensitive)
     const existing = await categoryRepository.findByName(request.category_name);
-    if (existing) {
-        throw {
-            status: false,
-            statusCode: 409,
-            message: 'Category name already exists'
-        };
-    }
+    if (existing)
+        throw { status: false, statusCode: 409, message: 'Category name already exists' };
 
-    // Generate category code
-    request.category_code = await generateCode('tbl_category', 'category_code', 'CAT');
+    request.category_code = await generateCode(
+        'tbl_category',
+        'category_code',
+        'CAT'
+    );
 
     const category = await categoryRepository.create(request);
     return new CategoryResponse(category);
-}
+};
 
 exports.updateCategory = async (code, payload) => {
-    const request = new UpdateCategoryRequest(payload);
-    if (request.category_name) request.category_name = request.category_name.trim();
+    if (!code)
+        throw { status: false, statusCode: 400, message: 'Category code is required' };
 
     const existing = await categoryRepository.findByCode(code);
-    if (!existing) throw { status: false, statusCode: 404, message: 'Category not found' };
+    if (!existing)
+        throw { status: false, statusCode: 404, message: 'Category not found' };
 
-    if (request.category_name) {
+    const request = new UpdateCategoryRequest(payload);
+
+    if (request.category_name !== undefined) {
+        request.category_name = request.category_name.trim();
+        if (!request.category_name)
+            throw { status: false, statusCode: 400, message: 'Invalid category name' };
+
         const duplicate = await categoryRepository.findByName(request.category_name);
-        if (duplicate && duplicate.category_code !== code) {
+        if (duplicate && duplicate.category_code !== code)
             throw { status: false, statusCode: 409, message: 'Category name already exists' };
-        }
     }
 
     const category = await categoryRepository.updateByCode(code, request);
     return new CategoryResponse(category);
-}
+};
 
 exports.deleteCategory = async (code) => {
     const existing = await categoryRepository.findByCode(code);

@@ -8,8 +8,10 @@ app.use(express.json());
 
 const userRoutes = require('../routes/user.routes');
 const categoryRoutes = require('../routes/category.routes');
+const attractionRoutes = require('../routes/attraction.routes');
 
 app.use('/', userRoutes);
 app.use('/', categoryRoutes);
+app.use('/', attractionRoutes);
 
 module.exports = app;

@@ -17,36 +17,43 @@ exports.getUserByCode = async (code) => {
 exports.createUser = async (payload) => {
     const request = new CreateUserRequest(payload);
 
+    // Validate email
+    if (!request.email)
+        throw { status: false, statusCode: 400, message: 'Email is required' };
+
     request.email = request.email.trim().toLowerCase();
 
     const existing = await userRepo.findByEmail(request.email);
-    if (existing) throw { status: false, statusCode: 409, message: 'User already exists' };
+    if (existing)
+        throw { status: false, statusCode: 409, message: 'User already exists' };
 
     // Generate unique user code
     request.user_code = await generateCode('tbl_user', 'user_code', 'USR');
 
     const user = await userRepo.create(request);
     return new UserResponse(user);
-}
+};
 
 exports.updateUser = async (code, payload) => {
+    const existing = await userRepo.findByCode(code);
+    if (!existing)
+        throw { status: false, statusCode: 404, message: 'User not found' };
+
     const request = new UpdateUserRequest(payload);
 
-    const existing = await userRepo.findByCode(code);
-    if (!existing) throw { status: false, statusCode: 404, message: 'User not found' };
+    if (request.email !== undefined) {
+        request.email = request.email.trim().toLowerCase();
+        if (!request.email)
+            throw { status: false, statusCode: 400, message: 'Invalid email' };
 
-    if (request.email) request.email = request.email.trim().toLowerCase();
-
-    if (request.email) {
         const duplicate = await userRepo.findByEmail(request.email);
-        if (duplicate && duplicate.user_code !== code) {
+        if (duplicate && duplicate.user_code !== code)
             throw { status: false, statusCode: 409, message: 'Email already in use' };
-        }
     }
 
     const user = await userRepo.update(code, request);
     return new UserResponse(user);
-}
+};
 
 exports.deleteUser = async (code) => {
     const existing = await userRepo.findByCode(code);
