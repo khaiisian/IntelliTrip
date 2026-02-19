@@ -29,6 +29,24 @@ exports.getUserByCode = async (req, res) => {
     }
 }
 
+exports.loginUser = async (req, res) => {
+    try {
+        const result = await userService.loginUser(req.body);
+        return sendResponse(res, {
+            statusCode: 200,
+            data: result,
+            message: "Login successful"
+        });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? "Login failed"
+        });
+    }
+}
+
 exports.createUser = async (req, res) => {
     try {
         const user = await userService.createUser(req.body);

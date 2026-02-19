@@ -15,7 +15,15 @@ class UpdateUserRequest {
     }
 }
 
+class LoginUserRequest {
+    constructor(user) {
+        this.email = user.email;
+        this.password = user.password;
+    }
+}
+
 module.exports = {
     CreateUserRequest,
-    UpdateUserRequest
+    UpdateUserRequest,
+    LoginUserRequest
 }
