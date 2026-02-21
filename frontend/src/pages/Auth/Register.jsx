@@ -1,28 +1,40 @@
 import React from 'react'
 import {useState} from "react";
-import {login} from "../../api/auth.api.js";
+import {register} from "../../api/auth.api.js";
 import {useNavigate} from "react-router-dom";
 
-export default function Login() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+const Register = () => {
+    const [form, setForm] = useState({
+        user_name: "",
+        email: "",
+        password: "",
+    })
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
     const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setForm(prev => ({ ...prev, [name]: value }));
+    }
+
+    const submit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError("");
+
         try{
-            const res = await login({email, password});
-            // console.log(res);
-            // console.log(res.data.data.token);
+            const res = await register(form);
+            console.log(res)
+            console.log(res.data.data)
             localStorage.setItem("token", res.data.data.token);
             navigate("/home");
-        } catch (error) {
-            console.log(error.response.data.message);
-            setError(error.response.data.message);
+        } catch (err){
+            console.log("Error occurs!")
+            console.log(err.response.data.message);
+            setError(err?.response?.data?.message || "Registration failed");
         } finally {
             setLoading(false);
         }
@@ -31,7 +43,7 @@ export default function Login() {
     return (
         <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-                <h2 className="text-3xl font-bold text-center mb-8 text-[#1E3A8A]">Welcome Back</h2>
+                <h2 className="text-3xl font-bold text-center mb-8 text-[#1E3A8A]">Create Account</h2>
 
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
@@ -39,18 +51,35 @@ export default function Login() {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={submit} className="space-y-6">
+                    <div>
+                        <label htmlFor="user_name" className="block text-sm font-medium text-gray-700 mb-2">
+                            Full Name
+                        </label>
+                        <input
+                            id="user_name"
+                            name="user_name"
+                            type="text"
+                            placeholder="Enter your full name"
+                            value={form.user_name}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition"
+                            required
+                        />
+                    </div>
+
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                             Email Address
                         </label>
                         <input
                             id="email"
+                            name="email"
                             type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition"
                             placeholder="Enter your email"
+                            value={form.email}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition"
                             required
                         />
                     </div>
@@ -61,11 +90,12 @@ export default function Login() {
                         </label>
                         <input
                             id="password"
+                            name="password"
                             type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Create a password"
+                            value={form.password}
+                            onChange={handleChange}
                             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition"
-                            placeholder="Enter your password"
                             required
                         />
                     </div>
@@ -81,27 +111,31 @@ export default function Login() {
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Signing in...
+                                Creating account...
                             </span>
-                        ) : "Sign In"}
+                        ) : "Sign Up"}
                     </button>
                 </form>
 
-                <div className="mt-6 text-center">
-                    <a href="#" className="text-sm text-[#06B6D4] hover:text-cyan-700 transition">
-                        Forgot your password?
-                    </a>
-                </div>
-
                 <div className="mt-8 pt-6 border-t border-gray-200 text-center">
                     <p className="text-sm text-gray-600">
-                        Don't have an account?{' '}
-                        <a href="/register" className="text-[#1E3A8A] hover:text-indigo-800 font-semibold transition">
-                            Sign up
+                        Already have an account?{' '}
+                        <a href="/login" className="text-[#1E3A8A] hover:text-indigo-800 font-semibold transition">
+                            Sign in
                         </a>
+                    </p>
+                </div>
+
+                <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-500">
+                        By signing up, you agree to our{' '}
+                        <a href="#" className="text-[#06B6D4] hover:text-cyan-700 transition">Terms</a>
+                        {' '}and{' '}
+                        <a href="#" className="text-[#06B6D4] hover:text-cyan-700 transition">Privacy Policy</a>
                     </p>
                 </div>
             </div>
         </div>
     )
 }
+export default Register
