@@ -7,6 +7,14 @@ class CreateUserRequest {
     }
 }
 
+class RegisterUserRequest {
+    constructor(user) {
+        this.user_name = user.user_name;
+        this.email = user.email;
+        this.password = user.password;
+    }
+}
+
 class UpdateUserRequest {
     constructor({ user_name, email, profile_image }) {
         this.user_name = user_name;
@@ -25,5 +33,6 @@ class LoginUserRequest {
 module.exports = {
     CreateUserRequest,
     UpdateUserRequest,
-    LoginUserRequest
+    LoginUserRequest,
+    RegisterUserRequest
 }
