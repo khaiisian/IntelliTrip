@@ -1,12 +1,22 @@
+const authService = require('../services/auth.service');
 const userService = require('../services/user.service');
 const sendResponse = require('../src/utils/apiResponse');
 
 exports.registerUser = async (req, res) => {
     try {
-        const result = await userService.registerUser(req.body);
+        const result = await authService.registerUser(req.body);
+
+        res.cookie("refreshToken", result.refreshToken, {
+            httpOnly: true,
+            // secure: process.env.NODE_ENV === "production",
+            secure: false,
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         return sendResponse(res, {
             statusCode: 201,
-            data: result,
+            data: { token: result.accessToken, user: result.user },
             message: "Registration successful"
         });
     } catch (err) {
@@ -20,10 +30,18 @@ exports.registerUser = async (req, res) => {
 
 exports.loginUser = async (req, res) => {
     try {
-        const result = await userService.loginUser(req.body);
+        const result = await authService.loginUser(req.body);
+
+        res.cookie("refreshToken", result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
         return sendResponse(res, {
             statusCode: 200,
-            data: result,
+            data: { token: result.accessToken, user: result.user },
             message: "Login successful"
         });
     } catch (err) {
@@ -34,11 +52,12 @@ exports.loginUser = async (req, res) => {
             message: err.message ?? "Login failed"
         });
     }
-}
+};
 
 exports.refreshToken = async (req, res) => {
     try {
-        const result = await userService.refreshToken(req.body.refreshToken);
+        const refreshToken = req.cookies.refreshToken; // get from HttpOnly cookie
+        const result = await authService.refreshToken(refreshToken);
 
         return sendResponse(res, {
             data: result,

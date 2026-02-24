@@ -57,15 +57,16 @@ exports.loginUser = async (payload) => {
         throw { status: false, statusCode: 401, message: "Invalid credentials" };
     }
 
+    // Generate tokens
     const accessToken = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
     return {
-        token: accessToken,
+        accessToken,
         refreshToken,
         user: new UserResponse(user)
     };
-}
+};
 
 exports.refreshToken = async (refreshToken) => {
     if (!refreshToken) {
@@ -74,10 +75,7 @@ exports.refreshToken = async (refreshToken) => {
 
     let decoded;
     try {
-        decoded = jwt.verify(
-            refreshToken,
-            process.env.JWT_REFRESH_SECRET
-        );
+        decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     } catch (err) {
         throw { status: false, statusCode: 401, message: "Invalid refresh token" };
     }
