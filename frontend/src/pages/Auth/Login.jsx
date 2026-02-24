@@ -1,7 +1,8 @@
 import React from 'react'
 import {useState} from "react";
-import {login} from "../../api/auth.api.js";
+import {loginApi} from "../../api/auth.api.js";
 import {useNavigate} from "react-router-dom";
+import {useAuth} from "../../auth/AuthContext.jsx";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -9,16 +10,20 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const navigate = useNavigate();
+    const {login, isAuthenticated} = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError("");
         try{
-            const res = await login({email, password});
+            const res = await loginApi({email, password});
             // console.log(res);
             // console.log(res.data.data.token);
-            localStorage.setItem("token", res.data.data.token);
+            // localStorage.setItem("token", res.data.data.token);
+            login(res.data.data);
+            console.log("login success");
+            console.log(isAuthenticated);
             navigate("/home");
         } catch (error) {
             console.log(error.response.data.message);

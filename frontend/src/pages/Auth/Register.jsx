@@ -2,6 +2,7 @@ import React from 'react'
 import {useState} from "react";
 import {register} from "../../api/auth.api.js";
 import {useNavigate} from "react-router-dom";
+import {useAuth} from "../../auth/AuthContext.jsx";
 
 const Register = () => {
     const [form, setForm] = useState({
@@ -9,6 +10,8 @@ const Register = () => {
         email: "",
         password: "",
     })
+
+    const {login} = useAuth();
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -27,9 +30,11 @@ const Register = () => {
 
         try{
             const res = await register(form);
-            console.log(res)
-            console.log(res.data.data)
-            localStorage.setItem("token", res.data.data.token);
+            // console.log(res)
+            // console.log(res.data.data)
+            // localStorage.setItem("token", res.data.data.token);
+
+            login(res.data.data)
             navigate("/home");
         } catch (err){
             console.log("Error occurs!")
