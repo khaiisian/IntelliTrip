@@ -9,5 +9,8 @@ export const loginApi = (data) =>
 export const getMe = () =>
     api.get("auth/me");
 
-export const refreshToken = (data) =>
-    api.post("auth/refresh", data);
+export const refreshToken = () =>
+    api.post("/auth/refresh");
+
+export const logoutApi = () =>
+    api.post("/auth/logout");

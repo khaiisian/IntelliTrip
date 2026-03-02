@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useEffect} from 'react'
 import {useState} from "react";
 import {loginApi} from "../../api/auth.api.js";
 import {useNavigate} from "react-router-dom";
@@ -10,7 +10,11 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const navigate = useNavigate();
-    const {login, isAuthenticated} = useAuth();
+    const {login, isAuthenticated, user} = useAuth();
+
+    useEffect(() => {
+        if (isAuthenticated) navigate("/");
+    }, [isAuthenticated]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,8 +27,9 @@ export default function Login() {
             // localStorage.setItem("token", res.data.data.token);
             login(res.data.data);
             console.log("login success");
+            console.log(user);
             console.log(isAuthenticated);
-            navigate("/home");
+            navigate("/");
         } catch (error) {
             console.log(error.response.data.message);
             setError(error.response.data.message);
