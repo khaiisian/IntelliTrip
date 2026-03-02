@@ -88,3 +88,24 @@ exports.getMe = async (req, res) => {
         })
     }
 };
+
+exports.logoutUser = async (req, res) => {
+    try {
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production",
+        });
+
+        return sendResponse(res, {
+            statusCode: 200,
+            message: "Logout successful"
+        });
+    } catch (err) {
+        return sendResponse(res, {
+            status: false,
+            statusCode: 500,
+            message: "Logout failed"
+        });
+    }
+};
