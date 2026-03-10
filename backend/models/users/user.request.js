@@ -1,9 +1,10 @@
 class CreateUserRequest {
-    constructor({ user_name, email, password, profile_image }) {
+    constructor({ user_name, email, password, profile_image, user_role }) {
         this.user_name = user_name;
         this.email = email;
         this.password = password;
         this.profile_image = profile_image ?? null;
+        this.user_role = user_role;
     }
 }
 

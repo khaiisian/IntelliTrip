@@ -5,6 +5,7 @@ class UserResponse {
         this.user_name = user.user_name;
         this.email = user.email;
         this.profile_image = user.profile_image;
+        this.user_role = user.user_role ?? "none";
         this.created_at = user.created_at;
     }
 }

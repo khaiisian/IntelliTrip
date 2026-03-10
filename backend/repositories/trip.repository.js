@@ -5,6 +5,11 @@ exports.findAllByUser = async (userId) => {
         where: {
             user_id: Number(userId),
             is_deleted: false
+        },
+        include: {
+            tbl_user: true,
+            tbl_itinerary: true,
+            tbl_trip_preference: true
         }
     });
 };
@@ -14,6 +19,11 @@ exports.findByCode = async (code) => {
         where: {
             trip_code: code,
             is_deleted: false
+        },
+        include: {
+            tbl_user: true,
+            tbl_itinerary: true,
+            tbl_trip_preference: true
         }
     });
 };

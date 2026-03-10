@@ -11,6 +11,7 @@ class TripResponse {
         this.end_date = entity.end_date;
         this.budget = entity.budget;
         this.user_id = entity.user_id;
+        this.user = entity.tbl_user;
         this.itineraries = entity.tbl_itinerary;
         this.preferences = entity.tbl_trip_preference;
         this.created_at = entity.created_at;

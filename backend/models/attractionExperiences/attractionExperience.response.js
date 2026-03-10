@@ -6,6 +6,7 @@ class AttractionExperienceResponse {
         this.best_time_start = entity.best_time_start;
         this.best_time_end = entity.best_time_end;
         this.score_weight = entity.experience_score_weight;
+        this.time_bonus_multiplier = entity.time_bonus_multiplier;
         this.attraction = entity.tbl_attraction;
     }
 }

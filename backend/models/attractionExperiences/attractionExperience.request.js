@@ -5,6 +5,7 @@ class CreateAttractionExperienceRequest {
         this.best_time_start = exp.best_time_start;
         this.best_time_end = exp.best_time_end;
         this.experience_score_weight = exp.experience_score_weight;
+        this.time_bonus_multiplier = exp.time_bonus_multiplier;
     }
 }
 
@@ -14,6 +15,7 @@ class UpdateAttractionExperienceRequest {
         this.best_time_start = exp.best_time_start;
         this.best_time_end = exp.best_time_end;
         this.experience_score_weight = exp.experience_score_weight;
+        this.time_bonus_multiplier = exp.time_bonus_multiplier;
     }
 }
 

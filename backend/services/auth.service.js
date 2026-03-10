@@ -97,7 +97,8 @@ const generateToken = (user) => {
         {
             userCode: user.user_code,
             email: user.email,
-            userName: user.user_name
+            userName: user.user_name,
+            userRole: user.user_role,
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
