@@ -17,6 +17,7 @@ const attractionRoutes = require('../routes/attraction.routes');
 const expAttractionRoutes = require('../routes/attractionExperience.routes');
 const tripRoutes = require('../routes/trip.routes');
 const authRoutes = require('../routes/auth.routes');
+const tripScheduleRoutes = require('../routes/tripSchedule.route');
 
 app.use('/', userRoutes);
 app.use('/', categoryRoutes);
@@ -24,5 +25,6 @@ app.use('/', attractionRoutes);
 app.use('/', expAttractionRoutes);
 app.use('/', tripRoutes);
 app.use('/', authRoutes);
+app.use('/', tripScheduleRoutes);
 
 module.exports = app;
