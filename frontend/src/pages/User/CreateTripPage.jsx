@@ -71,17 +71,19 @@ export const CreateTripPage = () => {
             user_id: user.user_id
         };
 
+        console.log("Submitting payload:", payload);
+
         try {
             const res = await createTrip(payload);
             console.log("Trip created:", res.data);
 
-            // Navigate to next step (e.g., add attractions to trip)
+            // Navigate to trip details or add attractions page
             // navigate(`/trip/${res.data.trip_id}/add-attractions`);
-            navigate("/trips"); // or wherever you want to go
+            navigate(`/tripSchedule/${res.data.trip_code}`);
 
             alert("Trip created successfully!");
         } catch (err) {
-            console.error(err);
+            console.error("Error creating trip:", err);
             alert(err?.response?.data?.message || "Error creating trip");
         } finally {
             setLoading(false);
@@ -145,6 +147,7 @@ export const CreateTripPage = () => {
 
                         {/* Date Range - Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Start Date */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
                                     Start Date <span className="text-red-500">*</span>
@@ -154,19 +157,23 @@ export const CreateTripPage = () => {
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
                                         className={`w-full px-4 py-3 rounded-xl border ${
                                             errors.startDate || errors.dateRange ? 'border-red-500' : 'border-gray-300'
-                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none`}
+                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
                                     />
-                                    <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
+                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                        <svg className="w-5 h-5 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
                                 </div>
                                 {errors.startDate && (
                                     <p className="text-sm text-red-500 mt-1">{errors.startDate}</p>
                                 )}
                             </div>
 
+                            {/* End Date */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
                                     End Date <span className="text-red-500">*</span>
@@ -176,13 +183,16 @@ export const CreateTripPage = () => {
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
+                                        min={startDate || new Date().toISOString().split('T')[0]}
                                         className={`w-full px-4 py-3 rounded-xl border ${
                                             errors.endDate || errors.dateRange ? 'border-red-500' : 'border-gray-300'
-                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none`}
+                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
                                     />
-                                    <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
+                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                        <svg className="w-5 h-5 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
                                 </div>
                                 {errors.endDate && (
                                     <p className="text-sm text-red-500 mt-1">{errors.endDate}</p>
@@ -220,15 +230,6 @@ export const CreateTripPage = () => {
                                 {errors.startLocation && (
                                     <p className="text-sm text-red-500 mt-1">{errors.startLocation}</p>
                                 )}
-                                {startPlaceName && (
-                                    <div className="mt-2 p-2 bg-blue-50 rounded-lg flex items-start gap-2">
-                                        <svg className="w-4 h-4 text-[#06B6D4] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span className="text-xs text-gray-600">{startPlaceName}</span>
-                                    </div>
-                                )}
                             </div>
 
                             {/* End Location */}
@@ -247,15 +248,6 @@ export const CreateTripPage = () => {
                                 />
                                 {errors.endLocation && (
                                     <p className="text-sm text-red-500 mt-1">{errors.endLocation}</p>
-                                )}
-                                {endPlaceName && (
-                                    <div className="mt-2 p-2 bg-blue-50 rounded-lg flex items-start gap-2">
-                                        <svg className="w-4 h-4 text-[#06B6D4] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span className="text-xs text-gray-600">{endPlaceName}</span>
-                                    </div>
                                 )}
                             </div>
                         </div>
@@ -283,7 +275,7 @@ export const CreateTripPage = () => {
                                 <p className="text-sm text-red-500 mt-1">{errors.budget}</p>
                             )}
                             <p className="text-xs text-gray-500 mt-1">
-                                Estimated total budget for the trip
+                                Estimated total budget for the trip in Myanmar Kyat
                             </p>
                         </div>
 
@@ -304,7 +296,7 @@ export const CreateTripPage = () => {
                                     </span>
                                 ) : (
                                     <>
-                                        Next
+                                        Next: Add Schedule
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
@@ -313,6 +305,24 @@ export const CreateTripPage = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+
+                {/* Help Card */}
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-[#06B6D4] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <h4 className="text-sm font-semibold text-gray-800">How to set locations:</h4>
+                            <ul className="text-xs text-gray-600 mt-1 space-y-1 list-disc list-inside">
+                                <li>Type in the search box and select from suggestions</li>
+                                <li>Or click "Show Map" and click directly on the map</li>
+                                <li>You can drag the marker to fine-tune the location</li>
+                                <li>Both start and end locations are required</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -9,6 +9,7 @@ import AdminLayout from "../components/layouts/AdminLayout.jsx";
 import DashboardPage from "../pages/Admin/Dashboard/DashboardPage.jsx";
 import {CreateAttractionPage} from "../pages/Admin/Attractions/CreateAttractionPage.jsx";
 import {CreateTripPage} from "../pages/User/CreateTripPage.jsx";
+import {TripSchedulePage} from "../pages/User/TripSchedulePage.jsx";
 
 const AppRoutes = () => {
     return (
@@ -28,7 +29,7 @@ const AppRoutes = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/createTrip" element={<CreateTripPage />} />
-            </Route>
+                <Route path="/tripSchedule/:tripCode" element={<TripSchedulePage />} />            </Route>
 
             {/* Admin routes - only accessible by users with role 'admin' */}
             <Route
