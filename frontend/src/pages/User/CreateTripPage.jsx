@@ -79,7 +79,7 @@ export const CreateTripPage = () => {
 
             // Navigate to trip details or add attractions page
             // navigate(`/trip/${res.data.trip_id}/add-attractions`);
-            navigate(`/tripSchedule/${res.data.trip_code}`);
+            navigate(`/tripSchedule/${res.data.data.code}`);
 
             alert("Trip created successfully!");
         } catch (err) {

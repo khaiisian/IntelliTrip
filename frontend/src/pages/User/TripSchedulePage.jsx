@@ -104,6 +104,7 @@ export const TripSchedulePage = () => {
 
             // Navigate to next step (e.g., add attractions to schedule)
             // navigate(`/trip/${tripCode}/add-attractions`);
+            navigate(`/tripPreference/${tripCode}`);
 
         } catch (err) {
             console.error("Error saving schedule:", err);
@@ -219,7 +220,7 @@ export const TripSchedulePage = () => {
                             <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold">
                                 3
                             </div>
-                            <span className="ml-3 text-sm font-medium text-gray-500">Add Attractions</span>
+                            <span className="ml-3 text-sm font-medium text-gray-500">Select Preferences</span>
                         </div>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { getCategories } from "../../api/category.api.js";
+import { getTripByCode } from "../../api/trip.api.js";
 import { createPreference } from "../../api/tripPreference.api.js";
 
 export const TripPreferencePage = () => {
@@ -9,22 +10,37 @@ export const TripPreferencePage = () => {
     const { tripCode } = useParams();
     const { user } = useAuth();
 
+    const [trip, setTrip] = useState(null);
     const [categories, setCategories] = useState([]);
     const [preferences, setPreferences] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    // Fetch categories on component mount
+    // Fetch trip details and categories
     useEffect(() => {
-        const fetchCategories = async () => {
+        const fetchData = async () => {
+            if (!tripCode) {
+                setError("No trip code provided");
+                setLoading(false);
+                return;
+            }
+
             try {
                 setLoading(true);
-                const res = await getCategories();
-                console.log("Categories fetched:", res.data);
 
-                // Assuming res.data.data contains the categories array
-                const categoriesData = res.data.data || res.data;
+                // Fetch trip details first
+                console.log("Fetching trip with code:", tripCode);
+                const tripRes = await getTripByCode(tripCode);
+                const tripData = tripRes.data.data || tripRes.data;
+                console.log("Trip fetched:", tripData);
+                setTrip(tripData);
+
+                // Then fetch categories
+                const categoriesRes = await getCategories();
+                console.log("Categories fetched:", categoriesRes.data);
+
+                const categoriesData = categoriesRes.data.data || categoriesRes.data;
                 setCategories(categoriesData);
 
                 // Initialize preferences with default value 0.5 for each category
@@ -35,15 +51,15 @@ export const TripPreferencePage = () => {
                 setPreferences(initialPrefs);
 
             } catch (err) {
-                console.error("Error fetching categories:", err);
-                setError("Failed to load categories");
+                console.error("Error fetching data:", err);
+                setError(err?.response?.data?.message || "Failed to load data");
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchCategories();
-    }, []);
+        fetchData();
+    }, [tripCode]);
 
     // Handle slider change
     const handlePreferenceChange = (categoryId, value) => {
@@ -57,8 +73,8 @@ export const TripPreferencePage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!tripCode) {
-            setError("Trip code not found");
+        if (!trip?.id) {
+            setError("Trip information not available");
             return;
         }
 
@@ -66,24 +82,30 @@ export const TripPreferencePage = () => {
         setError("");
 
         try {
-            // Create an array of preference objects for each category
-            const preferencePromises = Object.entries(preferences).map(([categoryId, weight]) => {
+            const results = [];
+
+            for (const [categoryId, weight] of Object.entries(preferences)) {
+
                 const payload = {
-                    trip_id: tripCode, // Using tripCode as trip_id (adjust if your API expects numeric ID)
+                    trip_id: trip.id,
                     category_id: parseInt(categoryId),
                     preference_weight: parseFloat(weight)
                 };
-                return createPreference(payload);
-            });
 
-            // Execute all preference creation requests
-            await Promise.all(preferencePromises);
+                console.log("Saving preference:", payload);
 
-            console.log("All preferences saved successfully");
+                const res = await createPreference(payload); // wait for insert
+                console.log("Saved:", res.data);
 
-            // Navigate to next step (e.g., trip summary or home)
-            navigate(`/trip/${tripCode}/summary`);
-            // or navigate("/trips");
+                results.push(res);
+            }
+
+            console.log(
+                "All preferences saved successfully:",
+                results.map(r => r.data)
+            );
+
+            navigate(`/home`);
 
         } catch (err) {
             console.error("Error saving preferences:", err);
@@ -113,7 +135,8 @@ export const TripPreferencePage = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="text-gray-600">Loading categories...</p>
+                    <p className="text-gray-600">Loading trip details and categories...</p>
+                    <p className="text-xs text-gray-400 mt-2">Trip Code: {tripCode}</p>
                 </div>
             </div>
         );
@@ -169,10 +192,29 @@ export const TripPreferencePage = () => {
                             <div className="w-10 h-10 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold shadow-lg">
                                 3
                             </div>
-                            <span className="ml-3 font-semibold text-[#1E3A8A]">Preferences</span>
+                            <span className="ml-3 font-semibold text-[#1E3A8A]">Select Preferences</span>
                         </div>
                     </div>
                 </div>
+
+                {/* Trip Summary Card - Show trip details if available */}
+                {trip && (
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800">{trip.trip_name}</h2>
+                                <p className="text-sm text-gray-500">
+                                    Setting preferences for your trip
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Main Form Card */}
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -315,7 +357,7 @@ export const TripPreferencePage = () => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={saving || categories.length === 0}
+                                disabled={saving || categories.length === 0 || !trip}
                                 className="flex-1 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
                             >
                                 {saving ? (
