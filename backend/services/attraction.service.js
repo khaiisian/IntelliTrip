@@ -40,8 +40,8 @@ exports.createAttraction = async (payload) => {
     if (request.duration_minutes <= 0)
         throw { status: false, statusCode: 400, message: 'Invalid duration' };
 
-    request.open_time = toTime(payload.open_time);
-    request.close_time = toTime(payload.close_time);
+    request.open_time = new Date(`1970-01-01T${payload.open_time}:00Z`);
+    request.close_time = new Date(`1970-01-01T${payload.close_time}:00Z`);
 
     if (request.open_time >= request.close_time)
         throw { status: false, statusCode: 400, message: 'Open time must be before close time' };

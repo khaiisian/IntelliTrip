@@ -45,3 +45,20 @@ exports.remove = async (code) => {
         data: { is_deleted: true }
     });
 };
+
+exports.getTripPreferences = async (tripId) => {
+    return prisma.tbl_trip_preference.findMany({
+        where: {
+            trip_id: tripId,
+            is_deleted: false
+        }
+    });
+};
+
+exports.getTripSchedule = async (tripId) => {
+    return prisma.trip_schedule.findFirst({
+        where: {
+            trip_id: tripId
+        }
+    });
+};

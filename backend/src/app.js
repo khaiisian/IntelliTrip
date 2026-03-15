@@ -19,6 +19,7 @@ const tripRoutes = require('../routes/trip.routes');
 const authRoutes = require('../routes/auth.routes');
 const tripScheduleRoutes = require('../routes/tripSchedule.route');
 const tripPreferenceRoutes = require('../routes/tripPreference.route');
+const itineraryRoutes = require('../routes/itinerary.routes')
 
 app.use('/', userRoutes);
 app.use('/', categoryRoutes);
@@ -28,5 +29,6 @@ app.use('/', tripRoutes);
 app.use('/', authRoutes);
 app.use('/', tripScheduleRoutes);
 app.use('/', tripPreferenceRoutes);
+app.use('/', itineraryRoutes);
 
 module.exports = app;

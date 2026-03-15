@@ -1,5 +1,11 @@
 const prisma = require('../src/prisma');
 
+exports.getAllExperiences = async () => {
+    return prisma.tbl_attraction_experience.findMany({
+        where: { is_deleted: false }
+    });
+};
+
 exports.findAllByAttraction = async (attraction_id) => {
     return prisma.tbl_attraction_experience.findMany({
         where: { attraction_id, is_deleted: false },

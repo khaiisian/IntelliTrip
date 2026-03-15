@@ -1,5 +1,9 @@
 const prisma = require('../src/prisma');
 
+exports.getSystemConfig = async () => {
+    return prisma.tbl_system_config.findFirst();
+};
+
 exports.findAll = async () => {
     return prisma.tbl_system_config.findMany();
 };
