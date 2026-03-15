@@ -4,6 +4,9 @@ import { useAuth } from "../../auth/AuthContext.jsx";
 import { getCategories } from "../../api/category.api.js";
 import { getTripByCode } from "../../api/trip.api.js";
 import { createPreference } from "../../api/tripPreference.api.js";
+import { PageLoader, ButtonSpinner } from "../../components/LoadingSpinner.jsx";
+import { ErrorMessage } from "../../components/ErrorMessage.jsx";
+import { InfoBox } from "../../components/InfoBox.jsx";
 
 export const TripPreferencePage = () => {
     const navigate = useNavigate();
@@ -128,38 +131,11 @@ export const TripPreferencePage = () => {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 text-[#1E3A8A] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-gray-600">Loading trip details and categories...</p>
-                    <p className="text-xs text-gray-400 mt-2">Trip Code: {tripCode}</p>
-                </div>
-            </div>
-        );
+        return <PageLoader message="Loading trip details and categories..." tripCode={tripCode} />;
     }
 
     if (error) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-                    <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h2>
-                    <p className="text-gray-600 mb-6">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-6 py-3 bg-[#1E3A8A] text-white rounded-xl hover:bg-[#2563EB] transition-colors"
-                    >
-                        Try Again
-                    </button>
-                </div>
-            </div>
-        );
+        return <ErrorMessage message={error} onRetry={() => window.location.reload()} />;
     }
 
     return (
@@ -330,21 +306,15 @@ export const TripPreferencePage = () => {
                         </div>
 
                         {/* Info Card */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                                <svg className="w-5 h-5 text-[#06B6D4] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-gray-800">About Preferences:</h4>
-                                    <ul className="text-xs text-gray-600 mt-1 space-y-1 list-disc list-inside">
-                                        <li>Higher values mean you're more interested in that category</li>
-                                        <li>Preferences help us recommend the best attractions for you</li>
-                                        <li>You can always adjust these later in your trip settings</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+                        <InfoBox
+                            title="About Preferences:"
+                            icon="tip"
+                            items={[
+                                "Higher values mean you're more interested in that category",
+                                "Preferences help us recommend the best attractions for you",
+                                "You can always adjust these later in your trip settings"
+                            ]}
+                        />
 
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -361,13 +331,7 @@ export const TripPreferencePage = () => {
                                 className="flex-1 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
                             >
                                 {saving ? (
-                                    <span className="flex items-center justify-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Saving Preferences...
-                                    </span>
+                                    <ButtonSpinner text="Saving Preferences..." />
                                 ) : (
                                     <>
                                         Complete Trip Setup

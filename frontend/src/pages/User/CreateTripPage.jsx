@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import LocationSearch from "../../components/LocationSearch.jsx";
 import { createTrip } from "../../api/trip.api.js";
+import { FieldError, DateRangeError } from "../../components/ErrorMessage.jsx";
+import { ButtonSpinner } from "../../components/LoadingSpinner.jsx";
+import { InfoBox } from "../../components/InfoBox.jsx";
 
 export const CreateTripPage = () => {
     const navigate = useNavigate();
@@ -140,9 +143,7 @@ export const CreateTripPage = () => {
                                 } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none`}
                                 placeholder="E.g., Bagan Adventure, Yangon City Tour"
                             />
-                            {errors.tripName && (
-                                <p className="text-sm text-red-500 mt-1">{errors.tripName}</p>
-                            )}
+                            <FieldError error={errors.tripName} />
                         </div>
 
                         {/* Date Range - Grid */}
@@ -168,9 +169,7 @@ export const CreateTripPage = () => {
                                         </svg>
                                     </div>
                                 </div>
-                                {errors.startDate && (
-                                    <p className="text-sm text-red-500 mt-1">{errors.startDate}</p>
-                                )}
+                                <FieldError error={errors.startDate} />
                             </div>
 
                             {/* End Date */}
@@ -194,18 +193,12 @@ export const CreateTripPage = () => {
                                         </svg>
                                     </div>
                                 </div>
-                                {errors.endDate && (
-                                    <p className="text-sm text-red-500 mt-1">{errors.endDate}</p>
-                                )}
+                                <FieldError error={errors.endDate} />
                             </div>
                         </div>
 
                         {/* Date Range Error */}
-                        {errors.dateRange && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-sm text-red-600">{errors.dateRange}</p>
-                            </div>
-                        )}
+                        <DateRangeError error={errors.dateRange} />
 
                         {/* Location Section */}
                         <div className="space-y-6">
@@ -227,9 +220,7 @@ export const CreateTripPage = () => {
                                     setPlaceName={setStartPlaceName}
                                     placeholder="Search for starting point..."
                                 />
-                                {errors.startLocation && (
-                                    <p className="text-sm text-red-500 mt-1">{errors.startLocation}</p>
-                                )}
+                                <FieldError error={errors.startLocation} />
                             </div>
 
                             {/* End Location */}
@@ -246,9 +237,7 @@ export const CreateTripPage = () => {
                                     setPlaceName={setEndPlaceName}
                                     placeholder="Search for ending point..."
                                 />
-                                {errors.endLocation && (
-                                    <p className="text-sm text-red-500 mt-1">{errors.endLocation}</p>
-                                )}
+                                <FieldError error={errors.endLocation} />
                             </div>
                         </div>
 
@@ -271,9 +260,7 @@ export const CreateTripPage = () => {
                                     step="1000"
                                 />
                             </div>
-                            {errors.budget && (
-                                <p className="text-sm text-red-500 mt-1">{errors.budget}</p>
-                            )}
+                            <FieldError error={errors.budget} />
                             <p className="text-xs text-gray-500 mt-1">
                                 Estimated total budget for the trip in Myanmar Kyat
                             </p>
@@ -287,13 +274,7 @@ export const CreateTripPage = () => {
                                 className="w-full bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
                             >
                                 {loading ? (
-                                    <span className="flex items-center justify-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Creating Trip...
-                                    </span>
+                                    <ButtonSpinner text="Creating Trip..." />
                                 ) : (
                                     <>
                                         Next: Add Schedule
@@ -308,22 +289,15 @@ export const CreateTripPage = () => {
                 </div>
 
                 {/* Help Card */}
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-[#06B6D4] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                            <h4 className="text-sm font-semibold text-gray-800">How to set locations:</h4>
-                            <ul className="text-xs text-gray-600 mt-1 space-y-1 list-disc list-inside">
-                                <li>Type in the search box and select from suggestions</li>
-                                <li>Or click "Show Map" and click directly on the map</li>
-                                <li>You can drag the marker to fine-tune the location</li>
-                                <li>Both start and end locations are required</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                <InfoBox
+                    title="How to set locations:"
+                    items={[
+                        "Type in the search box and select from suggestions",
+                        "Or click \"Show Map\" and click directly on the map",
+                        "You can drag the marker to fine-tune the location",
+                        "Both start and end locations are required"
+                    ]}
+                />
             </div>
         </div>
     );

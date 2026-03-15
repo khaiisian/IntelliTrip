@@ -3,6 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { getTripByCode } from "../../api/trip.api.js";
 import { createSchedule } from "../../api/tripSchedule.api.js";
+import { PageLoader, ButtonSpinner } from "../../components/LoadingSpinner.jsx";
+import { ErrorMessage, FormErrorMessage } from "../../components/ErrorMessage.jsx";
+import { InfoBox } from "../../components/InfoBox.jsx";
 
 export const TripSchedulePage = () => {
     const navigate = useNavigate();
@@ -116,46 +119,26 @@ export const TripSchedulePage = () => {
 
     // Show loading state
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 text-[#1E3A8A] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-gray-600">Loading trip details...</p>
-                    <p className="text-xs text-gray-400 mt-2">Trip Code: {tripCode}</p>
-                </div>
-            </div>
-        );
+        return <PageLoader message="Loading trip details..." tripCode={tripCode} />;
     }
 
     // Show error state
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-                    <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h2>
-                    <p className="text-gray-600 mb-6">{error}</p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <ErrorMessage
+                message={error}
+                onRetry={() => window.location.reload()}
+                actions={
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
                         <button
                             onClick={() => navigate("/trips")}
                             className="px-6 py-3 bg-[#1E3A8A] text-white rounded-xl hover:bg-[#2563EB] transition-colors"
                         >
                             Back to Trips
                         </button>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
-                        >
-                            Try Again
-                        </button>
                     </div>
-                </div>
-            </div>
+                }
+            />
         );
     }
 
@@ -303,6 +286,7 @@ export const TripSchedulePage = () => {
                                 </div>
                             </div>
                         </div>
+
                         {/* Daily Hours Calculator */}
                         <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
                             <div className="flex items-center justify-between">
@@ -336,33 +320,20 @@ export const TripSchedulePage = () => {
                             </div>
 
                             {/* Error Message */}
-                            {timeError && (
-                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <span className="text-sm text-red-600">{timeError}</span>
-                                </div>
-                            )}
+                            <FormErrorMessage message={timeError} />
                         </div>
 
                         {/* Info Card */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                            <div className="flex items-start gap-3">
-                                <svg className="w-5 h-5 text-[#06B6D4] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                    <h4 className="text-sm font-semibold text-gray-800">Schedule Tips:</h4>
-                                    <ul className="text-xs text-gray-600 mt-1 space-y-1 list-disc list-inside">
-                                        <li>This sets the schedule for Day 1 of your trip</li>
-                                        <li>You can customize each day's schedule later</li>
-                                        <li>End time can be next day for overnight activities</li>
-                                        <li>Available hours will be used to plan attractions</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+                        <InfoBox
+                            title="Schedule Tips:"
+                            icon="tip"
+                            items={[
+                                "This sets the schedule for Day 1 of your trip",
+                                "You can customize each day's schedule later",
+                                "End time can be next day for overnight activities",
+                                "Available hours will be used to plan attractions"
+                            ]}
+                        />
 
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -379,13 +350,7 @@ export const TripSchedulePage = () => {
                                 className="flex-1 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
                             >
                                 {saving ? (
-                                    <span className="flex items-center justify-center">
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Saving...
-                                    </span>
+                                    <ButtonSpinner text="Saving..." />
                                 ) : (
                                     <>
                                         Next: Select Preferences
