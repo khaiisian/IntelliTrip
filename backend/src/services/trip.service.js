@@ -1,7 +1,7 @@
 const tripRepo = require('../repositories/trip.repository');
 const TripResponse = require('../models/trips/trip.response');
 const { CreateTripRequest, UpdateTripRequest } = require('../models/trips/trip.request');
-const generateCode = require('../src/utils/generateCode');
+const generateCode = require('../utils/generateCode');
 
 exports.getTripsByUser = async (userId) => {
     const trips = await tripRepo.findAllByUser(userId);

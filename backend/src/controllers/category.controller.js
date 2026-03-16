@@ -1,5 +1,5 @@
 const categoryService = require('../services/category.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getCategories = async (req, res) => {
     try {

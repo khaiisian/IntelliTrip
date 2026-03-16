@@ -1,5 +1,5 @@
 const expService = require('../services/attractionExperience.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 // GET all experiences for an attraction
 exports.getExperiencesByAttraction = async (req, res) => {

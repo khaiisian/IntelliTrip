@@ -1,5 +1,5 @@
 const itineraryService = require('../services/itinerary.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.generateItinerary = async (req, res) => {
     try {

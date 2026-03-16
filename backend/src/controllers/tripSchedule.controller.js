@@ -1,5 +1,5 @@
 const scheduleService = require('../services/tripSchedule.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getSchedulesByTrip = async (req, res) => {
     try {

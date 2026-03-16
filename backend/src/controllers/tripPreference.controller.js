@@ -1,5 +1,5 @@
 const prefService = require('../services/tripPreference.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getPreferencesByTrip = async (req, res) => {
     try {

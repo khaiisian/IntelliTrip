@@ -1,5 +1,5 @@
-const userService = require('../services/user.service');
-const sendResponse = require('../src/utils/apiResponse');
+const userService = require('../../services/user.service');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getUsers = async (req, res) => {
     try {

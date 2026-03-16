@@ -1,7 +1,7 @@
 const prefRepo = require('../repositories/tripPreference.repository');
 const PreferenceResponse = require('../models/tripPreference/tripPreference.response');
 const { CreatePreferenceRequest, UpdatePreferenceRequest } = require('../models/tripPreference/tripPreference.request');
-const generateCode = require('../src/utils/generateCode');
+const generateCode = require('../utils/generateCode');
 
 exports.getPreferencesByTrip = async (tripId) => {
 

@@ -1,8 +1,8 @@
 const expRepo = require('../repositories/attractionExperience.repository');
 const { CreateAttractionExperienceRequest, UpdateAttractionExperienceRequest } = require('../models/attractionExperiences/attractionExperience.request');
 const AttractionExperienceResponse = require('../models/attractionExperiences/attractionExperience.response');
-const generateCode = require('../src/utils/generateCode');
-const toTime = require('../src/utils/formatTime');
+const generateCode = require('../utils/generateCode');
+const toTime = require('../utils/formatTime');
 
 exports.getExperiencesByAttraction = async (attraction_id) => {
     const data = await expRepo.findAllByAttraction(attraction_id);

@@ -1,5 +1,5 @@
 const configService = require('../services/systemConfig.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getConfigs = async (req, res) => {
     try {

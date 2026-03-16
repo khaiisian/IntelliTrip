@@ -1,5 +1,5 @@
 const tripService = require('../services/trip.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getTripsByUser = async (req, res) => {
     try {

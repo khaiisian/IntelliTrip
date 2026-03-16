@@ -1,6 +1,6 @@
-const authService = require('../services/auth.service');
-const userService = require('../services/user.service');
-const sendResponse = require('../src/utils/apiResponse');
+const authService = require('../../services/auth.service');
+const userService = require('../../services/user.service');
+const sendResponse = require('../utils/apiResponse');
 
 exports.registerUser = async (req, res) => {
     try {

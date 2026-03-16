@@ -1,7 +1,7 @@
 const categoryRepository = require('../repositories/category.repository');
 const CategoryResponse = require('../models/categories/category.response');
 const { CreateCategoryRequest, UpdateCategoryRequest } = require('../models/categories/category.model');
-const generateCode = require('../src/utils/generateCode');
+const generateCode = require('../utils/generateCode');
 
 exports.getCategories = async () => {
     const categories = await categoryRepository.findAll();
