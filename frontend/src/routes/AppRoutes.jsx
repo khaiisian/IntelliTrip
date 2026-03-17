@@ -11,6 +11,9 @@ import {CreateAttractionPage} from "../pages/Admin/Attractions/CreateAttractionP
 import {CreateTripPage} from "../pages/User/CreateTripPage.jsx";
 import {TripSchedulePage} from "../pages/User/TripSchedulePage.jsx";
 import {TripPreferencePage} from "../pages/User/TripPreferencePage.jsx";
+import {TripItineraryPage} from "../pages/User/ItineraryPage.jsx";
+import {TripsPage} from "../pages/User/TripListPage.jsx";
+import {TripDetailPage} from "../pages/User/TripDetailPage.jsx";
 
 const AppRoutes = () => {
     return (
@@ -29,10 +32,14 @@ const AppRoutes = () => {
             >
                 <Route path="/" element={<Home />} />
                 <Route path="/home" element={<Home />} />
+
+                <Route path="/tripLists" element={<TripsPage />} />
+                <Route path="/tripDetail/:tripCode" element={<TripDetailPage />} />
                 <Route path="/createTrip" element={<CreateTripPage />} />
+
                 <Route path="/tripSchedule/:tripCode" element={<TripSchedulePage />} />
-                <Route path="/tripPreference/:tripCode" element={<TripPreferencePage />}
-                />
+                <Route path="/tripPreference/:tripCode" element={<TripPreferencePage />}/>
+                <Route path="/itinerary/:tripCode" element={<TripItineraryPage />}/>
             </Route>
 
             {/* Admin routes - only accessible by users with role 'admin' */}

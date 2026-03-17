@@ -57,7 +57,7 @@ export const Navbar = () => {
                                 <div className="absolute -top-1 -right-1 w-2 h-2 lg:w-3 lg:h-3 bg-[#F59E0B] rounded-full border-2 border-white"></div>
                             </div>
                             <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] bg-clip-text text-transparent">
-                                BrandName
+                                IntelliTrip
                             </span>
                         </div>
 
@@ -76,6 +76,26 @@ export const Navbar = () => {
                                 {({ isActive }) => (
                                     <>
                                         Dashboard
+                                        {isActive && (
+                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
+                                        )}
+                                    </>
+                                )}
+                            </NavLink>
+
+                            <NavLink
+                                to="/tripLists"
+                                className={({ isActive }) => `
+                                    relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                                    ${isActive
+                                    ? 'text-[#1E3A8A]'
+                                    : 'text-gray-600 hover:text-[#1E3A8A]'
+                                }
+                                `}
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        TripLists
                                         {isActive && (
                                             <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
                                         )}

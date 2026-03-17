@@ -109,14 +109,21 @@ export const CreateTripPage = () => {
                             <div className="w-10 h-10 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold shadow-lg">
                                 1
                             </div>
-                            <span className="ml-3 font-semibold text-[#1E3A8A]">Trip Details</span>
+                            <span className="ml-3 text-sm font-medium text-gray-500">Trip Details</span>
                         </div>
-                        <div className="w-16 h-0.5 bg-gray-300"></div>
+                        <div className="w-16 h-0.5 bg-[#1E3A8A]"></div>
                         <div className="flex items-center">
                             <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold">
                                 2
                             </div>
-                            <span className="ml-3 text-gray-500">Add Attractions</span>
+                            <span className="ml-3 text-sm font-medium text-gray-500">Daily Schedule</span>
+                        </div>
+                        <div className="w-16 h-0.5 bg-gray-300"></div>
+                        <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold">
+                                3
+                            </div>
+                            <span className="ml-3 text-sm font-medium text-gray-500">Select Preferences</span>
                         </div>
                     </div>
                 </div>
