@@ -1,6 +1,6 @@
 const userRepo = require('../repositories/user.repository');
-const UserResponse = require('../src/models/users/user.response');
-const { CreateUserRequest, UpdateUserRequest, LoginUserRequest, RegisterUserRequest } = require('../src/models/users/user.request');
+const UserResponse = require('../models/users/user.response');
+const { CreateUserRequest, UpdateUserRequest, LoginUserRequest, RegisterUserRequest } = require('../models/users/user.request');
 const generateCode = require('../utils/generateCode');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");

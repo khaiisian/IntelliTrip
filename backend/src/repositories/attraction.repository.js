@@ -1,4 +1,4 @@
-const prisma = require('../src/prisma');
+const prisma = require('../prisma');
 
 exports.findAll = async () => {
     return prisma.tbl_attraction.findMany({

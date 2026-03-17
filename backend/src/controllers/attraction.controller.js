@@ -1,5 +1,5 @@
 const attractionService = require('../services/attraction.service');
-const sendResponse = require('../src/utils/apiResponse');
+const sendResponse = require('../utils/apiResponse');
 
 exports.getAttractions = async (req, res) => {
     try {

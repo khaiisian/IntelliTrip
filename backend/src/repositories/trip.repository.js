@@ -1,4 +1,4 @@
-const prisma = require('../src/prisma');
+const prisma = require('../prisma');
 
 exports.findAllByUser = async (userId) => {
     return prisma.tbl_trip.findMany({

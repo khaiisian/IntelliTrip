@@ -25,8 +25,11 @@ exports.createSchedule = async (payload) => {
     if (!request.day_start_time || !request.day_end_time)
         throw { statusCode: 400, message: "Start and End time required" };
 
-    request.day_start_time = new Date(`1970-01-01T${request.day_start_time}`);
-    request.day_end_time = new Date(`1970-01-01T${request.day_end_time}`);
+    // request.day_start_time = new Date(`1970-01-01T${request.day_start_time}`);
+    // request.day_end_time = new Date(`1970-01-01T${request.day_end_time}`);
+
+    request.day_start_time = new Date(request.day_start_time);
+    request.day_end_time = new Date(request.day_end_time);
 
     if (request.day_start_time >= request.day_end_time)
         throw { statusCode: 400, message: "Start time must be before end time" };

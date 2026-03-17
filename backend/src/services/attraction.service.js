@@ -1,8 +1,8 @@
 const attractionRepo = require('../repositories/attraction.repository');
 const AttractionResponse = require('../models/attractions/attraction.response');
 const { CreateAttractionRequest, UpdateAttractionRequest } = require('../models/attractions/attraction.request');
-const generateCode = require('../src/utils/generateCode');
-const toTime = require('../src/utils/formatTime');
+const generateCode = require('../utils/generateCode');
+const toTime = require('../utils/formatTime');
 
 exports.getAttractions = async () => {
     const data = await attractionRepo.findAll();

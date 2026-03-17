@@ -1,4 +1,4 @@
-const prisma = require('../src/prisma');
+const prisma = require('../prisma');
 
 exports.getSystemConfig = async () => {
     return prisma.tbl_system_config.findFirst();
