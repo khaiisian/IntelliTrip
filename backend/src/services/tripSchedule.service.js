@@ -25,14 +25,16 @@ exports.createSchedule = async (payload) => {
     if (!request.day_start_time || !request.day_end_time)
         throw { statusCode: 400, message: "Start and End time required" };
 
-    // request.day_start_time = new Date(`1970-01-01T${request.day_start_time}`);
-    // request.day_end_time = new Date(`1970-01-01T${request.day_end_time}`);
+    // Convert TIME → DateTime
+    const start = new Date(`1970-01-01T${request.day_start_time}:00Z`);
+    const end = new Date(`1970-01-01T${request.day_end_time}:00Z`);
 
-    request.day_start_time = new Date(request.day_start_time);
-    request.day_end_time = new Date(request.day_end_time);
-
-    if (request.day_start_time >= request.day_end_time)
+    if (start >= end)
         throw { statusCode: 400, message: "Start time must be before end time" };
+
+    // overwrite with Date objects (IMPORTANT)
+    request.day_start_time = start;
+    request.day_end_time = end;
 
     const schedule = await scheduleRepo.create(request);
     return new ScheduleResponse(schedule);

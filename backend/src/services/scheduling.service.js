@@ -248,6 +248,7 @@ exports.scheduleRoute = (route, schedule, systemConfig, tripDays, tripStartDate)
         results.push({
             day_number: currentDay,
             attraction_id: attraction.attraction_id,
+            attraction_code: attraction.attraction_code,
             attraction_name: attraction.attraction_name,
             visit_start_time: formatTime(scheduled.visitStart),
             visit_end_time: formatTime(scheduled.visitEnd),

@@ -67,7 +67,6 @@ exports.nearestNeighborRoute = (
                 Number(attr.longitude)
             );
 
-            // FIXED: Combine score AND distance
             // Normalize distance (assume max practical distance ~10km)
             const normalizedDistance = Math.min(distance / 10, 1);
 
