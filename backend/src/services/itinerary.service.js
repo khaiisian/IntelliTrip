@@ -1,4 +1,5 @@
 // itinerary.service.js
+const { parseTime, formatTime } = require('../utils/time');
 
 const tripRepo = require('../repositories/trip.repository');
 const attractionRepo = require('../repositories/attraction.repository');
@@ -54,7 +55,7 @@ exports.generateItinerary = async (tripCode) => {
     console.log(`Generating itinerary for trip: ${tripCode}`);
 
     try {
-        // 1. Load all required data
+        // 1. Load data
         const trip = await tripRepo.findByCode(tripCode);
         const preferences = await tripRepo.getTripPreferences(trip?.trip_id);
         const schedule = await tripRepo.getTripSchedule(trip?.trip_id);
@@ -62,90 +63,82 @@ exports.generateItinerary = async (tripCode) => {
         const experiences = await experienceRepo.getAllExperiences();
         const systemConfig = await systemConfigRepo.getSystemConfig();
 
-        // 2. Validate data
         validateData(trip, preferences, schedule, attractions, experiences, systemConfig);
 
-        // 3. Calculate trip days
-        const tripDays = scoringService.calculateTripDays(
-            trip.start_date,
-            trip.end_date
-        );
-        console.log(`Trip duration: ${tripDays} days`);
+        // 2. Trip days
+        const tripDays = scoringService.calculateTripDays(trip.start_date, trip.end_date);
 
-        // 4. Score attractions for all time slots
-        const scoredAttractions = scoringService.calculateAttractionScores(
-            attractions,
-            experiences,
-            preferences
-        );
-        console.log(`Scored ${scoredAttractions.length} attraction-time combinations`);
+        // 3. Prepare attractions (base_score + experiences)
+        const preparedAttractions = scoringService.prepareAttractions(attractions, experiences, preferences);
+        console.log(`Prepared ${preparedAttractions.length} attractions`);
 
-        // 5. Rank attractions by score
-        const rankedAttractions = scoringService.rankAttractions(scoredAttractions);
-
-        // 6. Filter by budget
-        const selectedAttractions = scoringService.filterByBudget(
-            rankedAttractions,
-            trip.budget
-        );
+        // 4. Filter by budget (simple greedy) – this will later be integrated into routing for better decision
+        const selectedAttractions = scoringService.filterByBudget(preparedAttractions, trip.budget);
         console.log(`Selected ${selectedAttractions.length} attractions within budget`);
 
         if (selectedAttractions.length === 0) {
             throw { statusCode: 400, message: "No attractions fit within budget" };
         }
 
-        // 7. Optimize route (combines score and distance)
+        // 5. Determine start time (first day start)
+        const startDateTime = new Date(trip.start_date);
+        const dayStartTime = parseTime(schedule.day_start_time);
+        const dayEndTime = parseTime(schedule.day_end_time);
+
+        const startTime = new Date(Date.UTC(
+            startDateTime.getUTCFullYear(),
+            startDateTime.getUTCMonth(),
+            startDateTime.getUTCDate(),
+            dayStartTime.getUTCHours(),
+            dayStartTime.getUTCMinutes(),
+            0, 0
+        ));
+
+        // 6. Time‑aware routing with hard constraints (Layer 1)
         const route = routingService.nearestNeighborRoute(
-            {
-                lat: trip.start_lat,
-                lng: trip.start_lng
-            },
+            { lat: trip.start_lat, lng: trip.start_lng },
             selectedAttractions,
-            { scoreWeight: 0.6 } // 60% score, 40% distance
+            startTime,
+            dayStartTime,
+            dayEndTime,
+            tripDays,
+            trip.budget,
+            systemConfig
         );
+
+        console.log(route)
+
         console.log(`Created route with ${route.length} stops`);
 
-        // 8. Schedule the route
-        const scheduledItems = schedulingService.scheduleRoute(
-            route,
-            schedule,
-            systemConfig,
-            tripDays,
-            trip.start_date
-        );
-        console.log(`Scheduled ${scheduledItems.length} items`);
-
-        if (scheduledItems.length === 0) {
+        if (route.length === 0) {
             throw { statusCode: 400, message: "Could not schedule any attractions" };
         }
 
-        // 9. Calculate totals
+        // 7. Convert route items to the format expected by the response (use day_number from route)
+        const scheduledItems = route.map(item => ({
+            day_number: item.day_number,
+            attraction_id: item.attraction_id,
+            attraction_code: item.attraction_code,
+            attraction_name: item.attraction_name,
+            visit_start_time: formatTime(item.visit_start_time),
+            visit_end_time: formatTime(item.visit_end_time),
+            distance_from_previous: item.distance_from_previous,
+            travel_minutes: item.travel_minutes,
+            final_score: item.final_score,
+            is_best_time: (item.final_score > item.base_score) // approximate
+        }));
+
+        // 8. Calculate totals
         const totals = calculateTotals(scheduledItems);
 
-        // 10. Save to database (uncomment when repositories ready)
-        /*
-        const itinerary = await itineraryRepo.create({
-            trip_id: trip.trip_id,
-            total_cost: totals.totalCost,
-            total_distance: totals.totalDistance,
-            total_travel_time: totals.totalTravelTime,
-            total_visit_time: totals.totalVisitTime
-        });
+        // 9. Group by day for easier frontend consumption
+        const byDay = scheduledItems.reduce((acc, item) => {
+            if (!acc[item.day_number]) acc[item.day_number] = [];
+            acc[item.day_number].push(item);
+            return acc;
+        }, {});
 
-        for (const item of scheduledItems) {
-            await itineraryItemRepo.create({
-                itinerary_id: itinerary.itinerary_id,
-                day_number: item.day_number,
-                attraction_id: item.attraction_id,
-                visit_start_time: item.visit_start_time,
-                visit_end_time: item.visit_end_time,
-                distance_from_previous: item.distance_from_previous,
-                final_score: item.final_score
-            });
-        }
-        */
-
-        // 11. Return comprehensive result
+        // 10. Return
         return {
             success: true,
             trip,
@@ -157,28 +150,11 @@ exports.generateItinerary = async (tripCode) => {
                 totalVisitTime: `${totals.totalVisitTime} minutes`
             },
             itinerary: scheduledItems,
-            // Group by day for easier frontend consumption
-            byDay: scheduledItems.reduce((acc, item) => {
-                if (!acc[item.day_number]) acc[item.day_number] = [];
-                acc[item.day_number].push(item);
-                return acc;
-            }, {})
+            byDay
         };
-
-        // return {
-        //     scheduledItems
-        // }
-
     } catch (error) {
         console.error('Error generating itinerary:', error);
-
-        // Re-throw with proper status code
-        if (error.statusCode) {
-            throw error;
-        }
-        throw {
-            statusCode: 500,
-            message: error.message || 'Failed to generate itinerary'
-        };
+        if (error.statusCode) throw error;
+        throw { statusCode: 500, message: error.message || 'Failed to generate itinerary' };
     }
 };
