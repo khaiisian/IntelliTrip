@@ -193,13 +193,33 @@ exports.nearestNeighborRoute = (
             continue;
         }
 
-        // --- 4. Choose best (simple scoring) ---
+        // --- 4. Choose best (context‑aware scoring, Layer 2) ---
         let best = null;
         let bestScore = -Infinity;
 
         for (const c of candidates) {
-            const bonus = getTimeBonus(c.attr, c.arrivalTime);
-            const score = c.attr.base_score * bonus;
+            // 1. Preference × time quality
+            const timeBonus = getTimeBonus(c.attr, c.arrivalTime);
+            const preferenceScore = c.attr.base_score * timeBonus;
+
+            // 2. Travel penalty (minutes → 0.01 per minute)
+            const travelPenalty = c.travelMinutes * 0.01;
+
+            // 3. Waiting penalty (minutes → 0.02 per minute)
+            const waitPenalty = c.waitMinutes * 0.02;
+
+            // 4. Cost penalty (cost / remainingBudget) * 0.3
+            let costPenalty = 0;
+            if (remainingBudget > 0) {
+                const costRatio = Number(c.attr.cost) / remainingBudget;
+                costPenalty = costRatio * 0.3;
+            }
+
+            // 5. Final score (can be negative)
+            const score = preferenceScore - travelPenalty - waitPenalty - costPenalty;
+
+            // Optional debug logging during tuning (remove later)
+            // console.log(`${c.attr.attraction_name}: pref=${preferenceScore.toFixed(2)}, travel=${travelPenalty.toFixed(2)}, wait=${waitPenalty.toFixed(2)}, cost=${costPenalty.toFixed(2)} → score=${score.toFixed(2)}`);
 
             if (score > bestScore) {
                 bestScore = score;
