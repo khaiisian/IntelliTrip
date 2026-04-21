@@ -2,7 +2,10 @@ const prisma = require('../prisma');
 
 exports.findAll = async () => {
     return prisma.tbl_attraction.findMany({
-        where: { is_deleted: false },
+        where: {
+            is_deleted: false,
+            is_test: true
+        },
         include: { tbl_category: true }
     });
 };

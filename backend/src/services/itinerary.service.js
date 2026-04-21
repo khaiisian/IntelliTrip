@@ -72,6 +72,13 @@ exports.generateItinerary = async (tripCode) => {
         const preparedAttractions = scoringService.prepareAttractions(attractions, experiences, preferences);
         console.log(`Prepared ${preparedAttractions.length} attractions`);
 
+        console.log("PREPARED ATTRS:", preparedAttractions.map(a => ({
+            id: a.attraction_id,
+            name: a.attraction_name,
+            base_score: a.base_score,
+            cost: a.cost
+        })));
+
         // 4. Filter by budget (simple greedy) – this will later be integrated into routing for better decision
         const selectedAttractions = scoringService.filterByBudget(preparedAttractions, trip.budget);
         console.log(`Selected ${selectedAttractions.length} attractions within budget`);
@@ -107,6 +114,12 @@ exports.generateItinerary = async (tripCode) => {
         );
 
         console.log(route)
+        console.log("FINAL ROUTE:");
+        console.table(route.map(r => ({
+            name: r.attraction_name,
+            score: r.final_score,
+            time: `${formatTime(r.visit_start_time)} - ${formatTime(r.visit_end_time)}`
+        })));
 
         console.log(`Created route with ${route.length} stops`);
 

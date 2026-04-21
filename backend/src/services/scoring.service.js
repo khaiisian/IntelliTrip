@@ -179,12 +179,22 @@ exports.calculateAttractionScores = (
 exports.filterByBudget = (attractions, tripBudget) => {
     // Sort by base_score descending
     const sorted = [...attractions].sort((a, b) => b.base_score - a.base_score);
+
+    console.log("SORTED ATTRS:", sorted.map(a => ({
+        name: a.attraction_name,
+        score: a.base_score,
+        cost: a.cost
+    })));
+
     let totalCost = 0;
     const selected = [];
 
     for (const attr of sorted) {
         const cost = Number(attr.cost);
         if (totalCost + cost <= tripBudget) {
+
+            console.log(`SELECTED: ${attr.attraction_name}, cost: ${cost}, total: ${totalCost}`);
+
             selected.push(attr);
             totalCost += cost;
         }

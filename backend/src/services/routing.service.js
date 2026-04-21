@@ -1,20 +1,14 @@
 const { calculateDistance } = require('../utils/distance');
 const { calculateTravelMinutes } = require('../utils/travelTime');
-const { addMinutes, parseTime, formatTime } = require('../utils/time');
+const { addMinutes, parseTime } = require('../utils/time');
 
 const distanceCache = new Map();
 const MAX_WAIT_MINUTES = 90;
 
-/**
- * Convert Date → minutes since midnight
- */
 function toMinutes(date) {
     return date.getUTCHours() * 60 + date.getUTCMinutes();
 }
 
-/**
- * Get cached distance
- */
 function getCachedDistance(lat1, lng1, lat2, lng2) {
     const key = `${lat1},${lng1}-${lat2},${lng2}`;
     const reverseKey = `${lat2},${lng2}-${lat1},${lng1}`;
@@ -27,9 +21,6 @@ function getCachedDistance(lat1, lng1, lat2, lng2) {
     return distance;
 }
 
-/**
- * Time bonus (Layer 2 support — safe to keep here)
- */
 function getTimeBonus(attraction, arrivalTime) {
     if (!attraction.experiences?.length) return 1;
 
@@ -48,23 +39,12 @@ function getTimeBonus(attraction, arrivalTime) {
     return bestMultiplier;
 }
 
-/**
- * HARD CONSTRAINT CHECK (Layer 1 core)
- */
-function isFeasible(
-    currentLocation,
-    currentTime,
-    attraction,
-    dayEndTime,
-    systemConfig,
-    remainingBudget
-) {
-    // Budget
+function isFeasible(currentLocation, currentTime, attraction, dayEndTime, systemConfig, remainingBudget) {
+
     if (Number(attraction.cost) > remainingBudget) {
-        return { feasible: false, reason: 'budget' };
+        return { feasible: false };
     }
 
-    // Travel
     const distance = getCachedDistance(
         currentLocation.lat,
         currentLocation.lng,
@@ -80,30 +60,18 @@ function isFeasible(
     const closeMin = toMinutes(parseTime(attraction.close_time));
     const dayEndMin = toMinutes(dayEndTime);
 
-    // Arrive after close
-    if (arrivalMin > closeMin) {
-        return { feasible: false, reason: 'after_close' };
-    }
+    if (arrivalMin > closeMin) return { feasible: false };
 
-    // Waiting
     let wait = 0;
     if (arrivalMin < openMin) {
         wait = openMin - arrivalMin;
-        if (wait > MAX_WAIT_MINUTES) {
-            return { feasible: false, reason: 'too_much_wait' };
-        }
+        if (wait > MAX_WAIT_MINUTES) return { feasible: false };
     }
 
-    // Visit end
     const visitEndMin = arrivalMin + wait + attraction.duration_minutes;
 
-    if (visitEndMin > closeMin) {
-        return { feasible: false, reason: 'cannot_finish_before_close' };
-    }
-
-    if (visitEndMin > dayEndMin) {
-        return { feasible: false, reason: 'exceeds_day' };
-    }
+    if (visitEndMin > closeMin) return { feasible: false };
+    if (visitEndMin > dayEndMin) return { feasible: false };
 
     return {
         feasible: true,
@@ -114,9 +82,6 @@ function isFeasible(
     };
 }
 
-/**
- * MAIN ROUTING FUNCTION
- */
 exports.nearestNeighborRoute = (
     startLocation,
     attractions,
@@ -127,6 +92,7 @@ exports.nearestNeighborRoute = (
     tripBudget,
     systemConfig
 ) => {
+
     if (!attractions?.length) return [];
 
     const route = [];
@@ -144,7 +110,6 @@ exports.nearestNeighborRoute = (
 
     while (remaining.length > 0 && currentDay <= tripDays) {
 
-        // --- 1. Get day boundaries ---
         const tripStart = new Date(startTime);
         tripStart.setUTCHours(0, 0, 0, 0);
 
@@ -157,15 +122,15 @@ exports.nearestNeighborRoute = (
         const dayEnd = new Date(dayDate);
         dayEnd.setUTCHours(dayEndTime.getUTCHours(), dayEndTime.getUTCMinutes(), 0, 0);
 
-        // If currentTime is before day start → snap to start
-        if (currentTime < dayStart) {
-            currentTime = new Date(dayStart);
-        }
+        if (currentTime < dayStart) currentTime = new Date(dayStart);
 
-        // --- 2. Find feasible candidates ---
+        // -------------------------
+        // 1. Build candidates
+        // -------------------------
         const candidates = [];
 
         for (const attr of remaining) {
+
             const check = isFeasible(
                 currentLocation,
                 currentTime,
@@ -175,70 +140,155 @@ exports.nearestNeighborRoute = (
                 remainingBudget
             );
 
-            if (check.feasible) {
-                candidates.push({ attr, ...check });
-            } else {
-                // DEBUG (keep this)
-                // console.log(`Rejected ${attr.attraction_name}: ${check.reason}`);
-            }
+            if (!check.feasible) continue;
+
+            if (attr.base_score < 0.5) continue;
+
+            candidates.push({ attr, ...check });
         }
 
-        // --- 3. No candidates → next day ---
         if (candidates.length === 0) {
             currentDay++;
-
             if (currentDay > tripDays) break;
-
             currentTime = new Date(dayStart);
             continue;
         }
 
-        // --- 4. Choose best (context‑aware scoring, Layer 2) ---
-        let best = null;
-        let bestScore = -Infinity;
-
+        // -------------------------
+        // 2. Score ALL candidates (no lookahead)
+        // -------------------------
         for (const c of candidates) {
-            // 1. Preference × time quality
+
             const timeBonus = getTimeBonus(c.attr, c.arrivalTime);
             const preferenceScore = c.attr.base_score * timeBonus;
 
-            // 2. Travel penalty (minutes → 0.01 per minute)
-            const travelPenalty = c.travelMinutes * 0.01;
+            const travelPenalty = Math.pow(c.travelMinutes, 1.15) * 0.02;
+            const waitPenalty = c.waitMinutes * 0.005;
 
-            // 3. Waiting penalty (minutes → 0.02 per minute)
-            const waitPenalty = c.waitMinutes * 0.02;
+            const futureBudgetAfterCurrent = remainingBudget - Number(c.attr.cost);
 
-            // 4. Cost penalty (cost / remainingBudget) * 0.3
             let costPenalty = 0;
-            if (remainingBudget > 0) {
-                const costRatio = Number(c.attr.cost) / remainingBudget;
-                costPenalty = costRatio * 0.3;
+            if (futureBudgetAfterCurrent > 0) {
+                const costRatio = Number(c.attr.cost) / futureBudgetAfterCurrent;
+                costPenalty = costRatio * 0.6;
             }
 
-            // 5. Final score (can be negative)
-            const score = preferenceScore - travelPenalty - waitPenalty - costPenalty;
+            c.scoreNow = preferenceScore - travelPenalty - waitPenalty - costPenalty;
+        }
 
-            // Optional debug logging during tuning (remove later)
-            // console.log(`${c.attr.attraction_name}: pref=${preferenceScore.toFixed(2)}, travel=${travelPenalty.toFixed(2)}, wait=${waitPenalty.toFixed(2)}, cost=${costPenalty.toFixed(2)} → score=${score.toFixed(2)}`);
+        // -------------------------
+        // 3. Apply smart threshold
+        // -------------------------
+        const STRICT_THRESHOLD = 0.4;
+        const RELAXED_THRESHOLD = 0.2;
 
-            if (score > bestScore) {
-                bestScore = score;
+        let filteredCandidates = candidates.filter(c => c.scoreNow >= STRICT_THRESHOLD);
+
+        if (filteredCandidates.length === 0) {
+            filteredCandidates = candidates.filter(c => c.scoreNow >= RELAXED_THRESHOLD);
+        }
+
+        if (filteredCandidates.length === 0) {
+            // nothing worth visiting → end day
+            currentDay++;
+            currentTime = new Date(dayStart);
+            continue;
+        }
+
+        // -------------------------
+        // 4. Choose best with lookahead
+        // -------------------------
+        let best = null;
+        let bestTotalScore = -Infinity;
+        let bestScoreNow = 0;
+
+        for (const c of filteredCandidates) {
+
+            const scoreNow = c.scoreNow;
+
+            // simulate future
+            let futureVisitStart = c.arrivalTime;
+            if (c.waitMinutes > 0) {
+                futureVisitStart = addMinutes(futureVisitStart, c.waitMinutes);
+            }
+
+            const futureVisitEnd = addMinutes(futureVisitStart, c.attr.duration_minutes);
+            const futureTime = addMinutes(futureVisitEnd, systemConfig.break_minutes);
+
+            const futureLocation = {
+                lat: Number(c.attr.latitude),
+                lng: Number(c.attr.longitude)
+            };
+
+            const futureRemaining = remaining.filter(
+                a => a.attraction_id !== c.attr.attraction_id
+            );
+
+            const futureBudget = remainingBudget - Number(c.attr.cost);
+
+            let bestNextScore = -Infinity;
+
+            for (const nextAttr of futureRemaining) {
+
+                const nextCheck = isFeasible(
+                    futureLocation,
+                    futureTime,
+                    nextAttr,
+                    dayEnd,
+                    systemConfig,
+                    futureBudget
+                );
+
+                if (!nextCheck.feasible) continue;
+
+                const nextTimeBonus = getTimeBonus(nextAttr, nextCheck.arrivalTime);
+                const nextPreferenceScore = nextAttr.base_score * nextTimeBonus;
+
+                const nextTravelPenalty = nextCheck.travelMinutes * 0.01;
+                const nextWaitPenalty = nextCheck.waitMinutes * 0.005;
+
+                let nextCostPenalty = 0;
+                if (futureBudget > 0) {
+                    const nextCostRatio = Number(nextAttr.cost) / futureBudget;
+                    nextCostPenalty = nextCostRatio * 0.3;
+                }
+
+                const nextScore =
+                    nextPreferenceScore -
+                    nextTravelPenalty -
+                    nextWaitPenalty -
+                    nextCostPenalty;
+
+                if (nextScore > bestNextScore) {
+                    bestNextScore = nextScore;
+                }
+            }
+
+            if (bestNextScore === -Infinity) bestNextScore = 0;
+
+            const totalScore = scoreNow + bestNextScore * 0.5;
+
+            if (totalScore > bestTotalScore) {
+                bestTotalScore = totalScore;
                 best = c;
+                bestScoreNow = scoreNow;
             }
         }
 
+        if (!best) break;
+
+        // -------------------------
+        // 5. Schedule
+        // -------------------------
         const chosen = best.attr;
 
-        // --- 5. Schedule ---
         let visitStart = best.arrivalTime;
-
         if (best.waitMinutes > 0) {
             visitStart = addMinutes(visitStart, best.waitMinutes);
         }
 
         const visitEnd = addMinutes(visitStart, chosen.duration_minutes);
 
-        // --- 6. Update state ---
         currentLocation = {
             lat: Number(chosen.latitude),
             lng: Number(chosen.longitude)
@@ -247,11 +297,12 @@ exports.nearestNeighborRoute = (
         currentTime = addMinutes(visitEnd, systemConfig.break_minutes);
         remainingBudget -= Number(chosen.cost);
 
-        // Remove from remaining
-        const index = remaining.findIndex(a => a.attraction_id === chosen.attraction_id);
+        const index = remaining.findIndex(
+            a => a.attraction_id === chosen.attraction_id
+        );
+
         if (index !== -1) remaining.splice(index, 1);
 
-        // --- 7. Push result ---
         route.push({
             ...chosen,
             day_number: currentDay,
@@ -259,16 +310,14 @@ exports.nearestNeighborRoute = (
             travel_minutes: best.travelMinutes,
             visit_start_time: visitStart,
             visit_end_time: visitEnd,
-            final_score: bestScore
+            final_score: bestScoreNow,
+            lookahead_score: bestTotalScore
         });
     }
 
     return route;
 };
 
-/**
- * Clear cache
- */
 exports.clearDistanceCache = () => {
     distanceCache.clear();
 };
