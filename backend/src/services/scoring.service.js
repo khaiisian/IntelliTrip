@@ -1,5 +1,13 @@
 // scoring.service.js
 
+const { parseTime } = require('../utils/time');
+const { SCORING_CONFIG } = require('./scoring.config');
+
+/**
+ * Normalize helpers (ALL values must be 0–1)
+ */
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
 /**
  * Calculate number of days between start and end date
  */
@@ -17,15 +25,21 @@ exports.prepareAttractions = (attractions, experiences, preferences) => {
     for (const attraction of attractions) {
         // Find category weight
         const categoryPref = preferences.find(p => p.category_id === attraction.category_id);
-        const categoryWeight = categoryPref ? categoryPref.preference_weight : 0.5;
+        const categoryWeight =
+            categoryPref?.preference_weight ??
+            preferences.reduce((sum, p) => sum + p.preference_weight, 0) / (preferences.length || 1);
 
         // Get experiences for this attraction
         const attractionExperiences = experiences.filter(e => e.attraction_id === attraction.attraction_id);
 
+        // Base score: only category preference (no rating data available)
+        const baseScore = categoryWeight;
+
         prepared.push({
             ...attraction,
-            base_score: categoryWeight,
-            experiences: attractionExperiences
+            cost: Number(attraction.cost) || 0,
+            base_score: baseScore,
+            experiences: attractionExperiences // NOTE: experiences are used only in routing layer
         });
     }
 
@@ -33,189 +47,66 @@ exports.prepareAttractions = (attractions, experiences, preferences) => {
 };
 
 /**
- * Define time slots to evaluate (2-hour blocks)
+ * Unified scoring function (ONLY ONE in system)
  */
-// const TIME_SLOTS = [
-//     '06:00', '08:00', '10:00', '12:00',
-//     '14:00', '16:00', '18:00', '20:00'
-// ];
+function computeExperienceScore(experiences, arrivalTime) {
+    if (!experiences?.length) return 0;
 
-// function formatTime(time) {
-//     if (typeof time === 'string') return time; // already a string
-//     if (time instanceof Date) {
-//         const h = String(time.getHours()).padStart(2, '0');
-//         const m = String(time.getMinutes()).padStart(2, '0');
-//         return `${h}:${m}`;
-//     }
-//     // fallback for object {hours, minutes}
-//     if (time.hours !== undefined && time.minutes !== undefined) {
-//         const h = String(time.hours).padStart(2, '0');
-//         const m = String(time.minutes).padStart(2, '0');
-//         return `${h}:${m}`;
-//     }
-//     return '00:00'; // default fallback
-// }
+    let score = 0;
+    const arrivalMin = arrivalTime.getUTCHours() * 60 + arrivalTime.getUTCMinutes();
 
-// /**
-//  * Check if a given time falls within an experience's best time window
-//  * @param {Object} experience - The experience object
-//  * @param {String} timeStr - Time to check (format: "HH:MM")
-//  * @returns {Boolean} - True if time is within best window
-//  */
-// function isTimeInBestWindow(experience, timeStr) {
-//     if (!timeStr) return false; // guard against undefined/null
-//     timeStr = timeStr.toString(); // convert to string if not
+    let totalWeight = 0;
+    for (const e of experiences) {
+        const start = parseTime(e.best_time_start);
+        const end = parseTime(e.best_time_end);
 
-//     const startStr = formatTime(experience.best_time_start);
-//     const endStr = formatTime(experience.best_time_end);
+        const startMin = start.getUTCHours() * 60 + start.getUTCMinutes();
+        const endMin = end.getUTCHours() * 60 + end.getUTCMinutes();
 
-//     const timeMinutes = parseInt(timeStr.split(':')[0]) * 60 + parseInt(timeStr.split(':')[1]);
-//     const startMinutes = parseInt(startStr.split(':')[0]) * 60 + parseInt(startStr.split(':')[1]);
-//     const endMinutes = parseInt(endStr.split(':')[0]) * 60 + parseInt(endStr.split(':')[1]);
-
-//     return timeMinutes >= startMinutes && timeMinutes <= endMinutes;
-// }
-
-/**
- * Calculate score for a single attraction at a specific time slot
- */
-// function calculateScoreForTimeSlot(attraction, experiences, preferences, timeSlot) {
-//     // Find category preference (default to 0.5 if not found)
-//     const categoryPreference = preferences.find(
-//         p => p.category_id === attraction.category_id
-//     );
-//     const categoryWeight = categoryPreference
-//         ? categoryPreference.preference_weight
-//         : 0.5;  // FIXED: Default weight instead of 0
-
-//     // Get experiences for this attraction
-//     const attractionExperiences = experiences.filter(
-//         e => e.attraction_id === attraction.attraction_id
-//     );
-
-//     if (attractionExperiences.length === 0) {
-//         // No experiences = base score using only category
-//         return {
-//             ...attraction,
-//             time_slot: timeSlot,
-//             experience_score: categoryWeight,
-//             is_best_time: false,
-//             matched_experience: null
-//         };
-//     }
-
-//     // Calculate best score among all experiences for this time slot
-//     let bestScore = 0;
-//     let bestExperience = null;
-//     let isBestTime = false;
-
-//     for (const exp of attractionExperiences) {
-//         // Base score from category + experience weight
-//         let score = categoryWeight * exp.experience_score_weight;
-
-//         // Apply time bonus if this time slot is within best window
-//         const timeMatches = isTimeInBestWindow(exp, timeSlot);
-//         if (timeMatches) {
-//             score = score * exp.time_bonus_multiplier;
-//         }
-
-//         if (score > bestScore) {
-//             bestScore = score;
-//             bestExperience = exp;
-//             isBestTime = timeMatches;
-//         }
-//     }
-
-//     return {
-//         ...attraction,
-//         time_slot: timeSlot,
-//         experience_score: bestScore,
-//         is_best_time: isBestTime,
-//         matched_experience: bestExperience ? {
-//             type: bestExperience.experience_type,
-//             weight: bestExperience.experience_score_weight
-//         } : null
-//     };
-// }
-
-/**
- * Main scoring function - scores each attraction for each time slot
- */
-exports.calculateAttractionScores = (
-    attractions,
-    experiences,
-    preferences
-) => {
-    const scoredAttractions = [];
-
-    for (const attraction of attractions) {
-        for (const timeSlot of TIME_SLOTS) {
-            const scored = calculateScoreForTimeSlot(
-                attraction,
-                experiences,
-                preferences,
-                timeSlot
+        let match = 0;
+        if (arrivalMin >= startMin && arrivalMin <= endMin) {
+            match = 1;
+        } else {
+            const dist = Math.min(
+                Math.abs(arrivalMin - startMin),
+                Math.abs(arrivalMin - endMin)
             );
-            scoredAttractions.push(scored);
+            match = Math.max(0, 1 - dist / 180);
         }
+
+        score += e.experience_score_weight * match;
+        totalWeight += e.experience_score_weight;
     }
 
-    return scoredAttractions;
+    return totalWeight > 0 ? clamp01(score / totalWeight) : 0;
+}
+
+exports.computeExperienceScore = computeExperienceScore;
+
+exports.computeScore = ({
+    basePreference,
+    experienceScore,
+    travelMinutes,
+    waitMinutes,
+    cost,
+    distance = 0,
+    maxCost              // <-- new parameter
+}) => {
+    const P = clamp01(basePreference);
+    const E = clamp01(experienceScore);
+    const rawTravel = Math.min(travelMinutes / SCORING_CONFIG.limits.maxTravelMin, 1);
+    const T = Math.min(rawTravel * 1.2, 1);
+    const C = Math.min(cost / maxCost, 1);    // <-- use dynamic maxCost
+    const W = Math.min(waitMinutes / SCORING_CONFIG.limits.maxWaitMin, 1);
+    const clusterPenalty = distance > 2 ? distance * 0.1 : 0;
+
+    const score =
+        SCORING_CONFIG.weights.preference * P +
+        SCORING_CONFIG.weights.experience * E -
+        SCORING_CONFIG.weights.travel * T -
+        SCORING_CONFIG.weights.cost * C -
+        SCORING_CONFIG.weights.wait * W -
+        clusterPenalty;
+
+    return score;
 };
-
-/**
- * Rank attractions by score (highest first)
- */
-// exports.rankAttractions = (scoredAttractions) => {
-//     return [...scoredAttractions].sort(
-//         (a, b) => b.experience_score - a.experience_score
-//     );
-// };
-
-/**
- * Filter attractions by budget
- * Note: This is a simple filter - you might want to make this smarter
- */
-exports.filterByBudget = (attractions, tripBudget) => {
-    // Sort by base_score descending
-    const sorted = [...attractions].sort((a, b) => b.base_score - a.base_score);
-
-    console.log("SORTED ATTRS:", sorted.map(a => ({
-        name: a.attraction_name,
-        score: a.base_score,
-        cost: a.cost
-    })));
-
-    let totalCost = 0;
-    const selected = [];
-
-    for (const attr of sorted) {
-        const cost = Number(attr.cost);
-        if (totalCost + cost <= tripBudget) {
-
-            console.log(`SELECTED: ${attr.attraction_name}, cost: ${cost}, total: ${totalCost}`);
-
-            selected.push(attr);
-            totalCost += cost;
-        }
-    }
-
-    return selected;
-};
-
-/**
- * Get best time slot for each attraction (useful for display)
- */
-// exports.getBestTimeSlotForAttractions = (scoredAttractions) => {
-//     const bestPerAttraction = new Map();
-
-//     for (const scored of scoredAttractions) {
-//         const id = scored.attraction_id;
-//         if (!bestPerAttraction.has(id) ||
-//             bestPerAttraction.get(id).experience_score < scored.experience_score) {
-//             bestPerAttraction.set(id, scored);
-//         }
-//     }
-
-//     return Array.from(bestPerAttraction.values());
-// };

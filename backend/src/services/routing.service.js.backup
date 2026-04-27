@@ -1,0 +1,363 @@
+// routing.service.js
+
+const { calculateDistance } = require('../utils/distance');
+const { calculateTravelMinutes } = require('../utils/travelTime');
+const { addMinutes, parseTime } = require('../utils/time');
+
+const distanceCache = new Map();
+const MAX_WAIT_MINUTES = 90;
+const WAIT_OPTIONS = [0, 30, 60]; // minutes to wait for better experience
+
+function toMinutes(date) {
+    return date.getUTCHours() * 60 + date.getUTCMinutes();
+}
+
+function getCachedDistance(lat1, lng1, lat2, lng2) {
+    const key = `${lat1},${lng1}-${lat2},${lng2}`;
+    const reverseKey = `${lat2},${lng2}-${lat1},${lng1}`;
+
+    if (distanceCache.has(key)) return distanceCache.get(key);
+    if (distanceCache.has(reverseKey)) return distanceCache.get(reverseKey);
+
+    const distance = calculateDistance(lat1, lng1, lat2, lng2);
+    distanceCache.set(key, distance);
+    return distance;
+}
+
+function getExperienceImpact(attraction, arrivalTime) {
+    if (!attraction.experiences?.length) {
+        return { weight: 1, multiplier: 1 };
+    }
+
+    const arrivalMin = toMinutes(arrivalTime);
+
+    let best = { weight: 1, multiplier: 1, score: 0 };
+
+    for (const exp of attraction.experiences) {
+        const start = toMinutes(parseTime(exp.best_time_start));
+        const end = toMinutes(parseTime(exp.best_time_end));
+
+        const inWindow = arrivalMin >= start && arrivalMin <= end;
+
+        const multiplier = inWindow ? exp.time_bonus_multiplier : 1;
+
+        const score = exp.experience_score_weight * multiplier;
+
+        if (score > best.score) {
+            best = {
+                weight: exp.experience_score_weight,
+                multiplier,
+                score
+            };
+        }
+    }
+
+    return best;
+}
+
+function getFinalPreferenceScore(attraction, arrivalTime) {
+    const exp = getExperienceImpact(attraction, arrivalTime);
+
+    const experienceFactor = exp.score; // already weight × multiplier
+
+    return attraction.base_score * (1 + experienceFactor * 0.1);
+}
+
+function computeScore({
+    attraction,
+    arrivalTime,
+    travelMinutes,
+    waitMinutes,
+    tripBudget,
+    dayEnd
+}) {
+
+    const preferenceScore = getFinalPreferenceScore(attraction, arrivalTime);
+
+    const MAX_TRAVEL = 120;
+    const travelPenalty = Math.min(travelMinutes / MAX_TRAVEL, 1);
+    const waitPenalty = waitMinutes * 0.005;
+    const costPenalty = tripBudget > 0
+        ? attraction.cost / tripBudget
+        : 0;
+
+    const score =
+        preferenceScore
+        - travelPenalty
+        - waitPenalty
+        - costPenalty;
+
+    return score;
+}
+
+function isFeasible(currentLocation, currentTime, attraction, dayEndTime, systemConfig, remainingBudget) {
+
+    if (Number(attraction.cost) > remainingBudget) {
+        return { feasible: false };
+    }
+
+    const distance = getCachedDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        Number(attraction.latitude),
+        Number(attraction.longitude)
+    );
+
+    const travelMinutes = calculateTravelMinutes(distance, systemConfig.travel_speed_kmh);
+    const arrivalTime = addMinutes(currentTime, travelMinutes);
+
+    const arrivalMin = toMinutes(arrivalTime);
+    const openMin = toMinutes(parseTime(attraction.open_time));
+    const closeMin = toMinutes(parseTime(attraction.close_time));
+    const dayEndMin = toMinutes(dayEndTime);
+
+    if (arrivalMin > closeMin) return { feasible: false };
+
+    let wait = 0;
+    if (arrivalMin < openMin) {
+        wait = openMin - arrivalMin;
+        if (wait > MAX_WAIT_MINUTES) return { feasible: false };
+    }
+
+    const visitEndMin = arrivalMin + wait + attraction.duration_minutes;
+
+    if (visitEndMin > closeMin) return { feasible: false };
+    if (visitEndMin > dayEndMin) return { feasible: false };
+
+    return {
+        feasible: true,
+        distance,
+        travelMinutes,
+        baseArrivalTime: arrivalTime,
+        waitMinutes: wait
+    };
+}
+
+exports.nearestNeighborRoute = (
+    startLocation,
+    attractions,
+    startTime,
+    dayStartTime,
+    dayEndTime,
+    tripDays,
+    tripBudget,
+    systemConfig
+) => {
+
+    if (!attractions?.length) return [];
+
+    const route = [];
+
+    let currentLocation = {
+        lat: Number(startLocation.lat),
+        lng: Number(startLocation.lng)
+    };
+
+    let currentTime = new Date(startTime);
+    let currentDay = 1;
+    let remainingBudget = tripBudget;
+
+    const remaining = [...attractions];
+
+    while (remaining.length > 0 && currentDay <= tripDays) {
+
+        const tripStart = new Date(startTime);
+        tripStart.setUTCHours(0, 0, 0, 0);
+
+        const dayDate = new Date(tripStart);
+        dayDate.setUTCDate(tripStart.getUTCDate() + (currentDay - 1));
+
+        const dayStart = new Date(dayDate);
+        dayStart.setUTCHours(dayStartTime.getUTCHours(), dayStartTime.getUTCMinutes(), 0, 0);
+
+        const dayEnd = new Date(dayDate);
+        dayEnd.setUTCHours(dayEndTime.getUTCHours(), dayEndTime.getUTCMinutes(), 0, 0);
+
+        if (currentTime < dayStart) currentTime = new Date(dayStart);
+
+        // -------------------------
+        // 1. Build candidates
+        // -------------------------
+        const candidates = [];
+
+        for (const attr of remaining) {
+
+            const check = isFeasible(
+                currentLocation,
+                currentTime,
+                attr,
+                dayEnd,
+                systemConfig,
+                remainingBudget
+            );
+
+            if (!check.feasible) continue;
+
+            // Removed hard filter on base_score < 0.5 to let scoring decide
+
+            candidates.push({
+                attr,
+                ...check,
+                distance: check.distance,
+                travelMinutes: check.travelMinutes
+            });
+        }
+
+        if (candidates.length === 0) {
+            currentDay++;
+            if (currentDay > tripDays) break;
+            currentTime = new Date(dayStart);
+            continue;
+        }
+
+        // -------------------------
+        // 2. Score ALL candidates
+        // -------------------------
+        for (const c of candidates) {
+
+            // Simulate waiting options to find best score
+            let bestScore = -Infinity;
+            let bestWait = 0;
+
+            for (const wait of WAIT_OPTIONS) {
+                const adjustedArrival = addMinutes(c.baseArrivalTime, wait);
+
+                if (toMinutes(adjustedArrival) > toMinutes(dayEnd)) continue;
+
+                const score = computeScore({
+                    attraction: c.attr,
+                    arrivalTime: adjustedArrival,
+                    travelMinutes: c.travelMinutes,
+                    waitMinutes: wait,
+                    tripBudget,
+                    dayEnd
+                });
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestWait = wait;
+                }
+            }
+
+            c.scoreNow = bestScore;
+            c.bestWait = bestWait;
+        }
+
+        // -------------------------
+        // 3. Choose best with simple 2-step lookahead
+        // -------------------------
+        let best = null;
+        let bestTotalScore = -Infinity;
+
+        for (const c of candidates) {
+
+            const scoreNow = c.scoreNow;
+
+            // simulate future (use bestWait)
+            const baseArrival = new Date(c.baseArrivalTime);
+            let futureVisitStart = addMinutes(baseArrival, c.bestWait);
+            const futureVisitEnd = addMinutes(futureVisitStart, c.attr.duration_minutes);
+            const futureTime = addMinutes(futureVisitEnd, systemConfig.break_minutes);
+
+            const futureLocation = {
+                lat: Number(c.attr.latitude),
+                lng: Number(c.attr.longitude)
+            };
+
+            const futureRemaining = remaining.filter(
+                a => a.attraction_id !== c.attr.attraction_id
+            );
+
+            let bestNextScore = -Infinity;
+
+            for (const nextAttr of futureRemaining) {
+
+                const nextCheck = isFeasible(
+                    futureLocation,
+                    futureTime,
+                    nextAttr,
+                    dayEnd,
+                    systemConfig,
+                    remainingBudget - Number(c.attr.cost)
+                );
+
+                if (!nextCheck.feasible) continue;
+
+                const adjustedArrival = addMinutes(
+                    nextCheck.baseArrivalTime,
+                    nextCheck.waitMinutes || 0
+                );
+
+                const nextScore = computeScore({
+                    attraction: nextAttr,
+                    arrivalTime: adjustedArrival,
+                    travelMinutes: nextCheck.travelMinutes,
+                    waitMinutes: nextCheck.waitMinutes || 0,
+                    tripBudget: remainingBudget - Number(c.attr.cost),
+                    dayEnd
+                });
+
+                if (nextScore > bestNextScore) {
+                    bestNextScore = nextScore;
+                }
+            }
+
+            if (bestNextScore === -Infinity) bestNextScore = 0;
+
+            const totalScore = scoreNow + bestNextScore;
+
+            if (totalScore > bestTotalScore) {
+                bestTotalScore = totalScore;
+                best = c;
+            }
+        }
+
+        if (!best) {
+            // nothing worth visiting → end day
+            currentDay++;
+            currentTime = new Date(dayStart);
+            continue;
+        }
+
+        // -------------------------
+        // 4. Schedule the best candidate
+        // -------------------------
+        const chosen = best.attr;
+
+        let visitStart = addMinutes(best.baseArrivalTime, best.bestWait);
+
+        const visitEnd = addMinutes(visitStart, chosen.duration_minutes);
+
+        currentLocation = {
+            lat: Number(chosen.latitude),
+            lng: Number(chosen.longitude)
+        };
+
+        currentTime = addMinutes(visitEnd, systemConfig.break_minutes);
+        remainingBudget -= Number(chosen.cost);
+
+        const index = remaining.findIndex(
+            a => a.attraction_id === chosen.attraction_id
+        );
+
+        if (index !== -1) remaining.splice(index, 1);
+
+        route.push({
+            ...chosen,
+            day_number: currentDay,
+            distance_from_previous: best.distance,
+            travel_minutes: best.travelMinutes,
+            visit_start_time: visitStart,
+            visit_end_time: visitEnd,
+            final_score: best.scoreNow, // Use real computed score
+            lookahead_score: 0,
+            total_score: bestTotalScore
+        });
+    }
+
+    return route;
+};
+
+exports.clearDistanceCache = () => {
+    distanceCache.clear();
+};

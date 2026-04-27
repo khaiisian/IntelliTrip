@@ -8,7 +8,10 @@
  */
 exports.calculateTravelMinutes = (distanceKm, speedKmh) => {
     if (!distanceKm || distanceKm <= 0) return 0;
-    if (!speedKmh || speedKmh <= 0) return 30; // Default fallback
+    // if (!speedKmh || speedKmh <= 0) return 30; // Default fallback
+    if (!speedKmh || speedKmh <= 0) {
+        throw new Error(`Invalid travel speed: ${speedKmh}`);
+    }
 
     const hours = distanceKm / speedKmh;
     const minutes = hours * 60;

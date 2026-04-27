@@ -34,9 +34,7 @@ exports.parseTime = (timeStr) => {
  * Add minutes to a date
  */
 exports.addMinutes = (date, minutes) => {
-    const newDate = new Date(date);
-    newDate.setMinutes(newDate.getMinutes() + minutes);
-    return newDate;
+    return new Date(date.getTime() + minutes * 60000);
 };
 
 /**
