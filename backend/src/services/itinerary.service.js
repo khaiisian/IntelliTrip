@@ -41,7 +41,7 @@ function estimateFutureScore(remaining, chosenId) {
 /**
  * Generate route using beam search for better optimization
  */
-function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring) {
+function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost) {
 
     if (!attractions?.length) return [];
 
@@ -55,7 +55,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
         currentDay: 1,
         remainingBudget: Number(tripBudget) || 0,
         remainingAttractions: [...attractions],
-        totalScore: 0
+        totalScore: 0,
+        hasLunchBreak: false
     };
 
     let beam = [initialState];
@@ -113,7 +114,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                 const nextState = {
                     ...state,
                     currentDay: nextDay,
-                    currentTime: nextDayStart
+                     currentTime: nextDayStart,
+                     hasLunchBreak: false
                 };
                 newBeam.push(nextState);
                 continue;
@@ -158,7 +160,23 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                 const actualStart = new Date(candidate.arrivalTime.getTime() + candidate.waitMinutes * 60000);
                 const visitEnd = new Date(actualStart.getTime() + chosen.duration_minutes * 60000);
 
-                let newTime = new Date(visitEnd.getTime() + systemConfig.break_minutes * 60000);
+                // === DYNAMIC BREAK ===
+                let dynamicBreak = 0;
+                let newHasLunchBreak = state.hasLunchBreak;   // start with current state's flag
+                const hour = visitEnd.getUTCHours();
+
+                // Rule 1: Lunch break (once per day, between 11:00 and 14:00)
+                if (!state.hasLunchBreak && hour >= 11 && hour <= 14) {
+                    dynamicBreak = 30;
+                    newHasLunchBreak = true;   // mark for this candidate only
+                }
+                // Rule 2: Short buffer after long travel (only if no lunch taken)
+                else if (candidate.travelMinutes > 15) {
+                    dynamicBreak = 5;
+                }
+                // else dynamicBreak stays 0 → no forced break
+
+                let newTime = new Date(visitEnd.getTime() + dynamicBreak * 60000);
                 let newDay = state.currentDay;
 
                 // Check if time exceeds day end
@@ -169,6 +187,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     nextDayStart.setUTCDate(dayDate.getUTCDate() + 1);
                     nextDayStart.setUTCHours(dayStartTime.getUTCHours(), dayStartTime.getUTCMinutes(), 0, 0);
                     newTime = nextDayStart;
+                    newHasLunchBreak = false;   // reset for the new day
                 }
 
                 const scheduledItem = {
@@ -192,7 +211,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     currentDay: newDay,
                     remainingBudget: state.remainingBudget - Number(chosen.cost),
                     remainingAttractions: state.remainingAttractions.filter(a => a.attraction_id !== chosen.attraction_id),
-                    totalScore: state.totalScore + candidate.score
+                    totalScore: state.totalScore + candidate.score,
+                    hasLunchBreak: newHasLunchBreak
                 };
 
                 newBeam.push(newState);
@@ -316,7 +336,8 @@ exports.generateItinerary = async (tripCode) => {
             tripDays,
             trip.budget,
             systemConfig,
-            scoringService
+            scoringService,
+            maxCost
         );
 
         console.log(route)
