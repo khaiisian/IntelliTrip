@@ -30,12 +30,17 @@ function isWithinBestTime(attraction, visitStartTime) {
 function estimateFutureScore(remaining, chosenId) {
     const nextOptions = remaining.filter(a => a.attraction_id !== chosenId);
 
-    let potential = 0;
+    let weightedSum = 0;
+    let totalWeight = 0;
+
     for (const attr of nextOptions) {
-        potential += Math.max(0, attr.base_score);
+        const weight = attr.base_score;   // already 0–1
+        weightedSum += attr.base_score * weight;
+        totalWeight += weight;
     }
 
-    return potential / (nextOptions.length || 1);
+    // If no remaining attractions or all have base_score = 0, return 0
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
 /**
@@ -46,6 +51,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
     if (!attractions?.length) return [];
 
     const BEAM_WIDTH = 5;
+    const MIN_HIGH_QUALITY_SCORE = 0.5;
+    const MIN_ACCEPTABLE_SCORE = 0.3;
 
     // State: { route: [], currentLocation, currentTime, currentDay, remainingBudget, remainingAttractions: [], totalScore }
     const initialState = {
@@ -102,6 +109,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
 
             if (candidates.length === 0) {
                 // No candidates, try next day
+                console.log(`[DAY ${state.currentDay}] No candidates at ${formatTime(currentTime)}. Moving to day ${state.currentDay + 1}`);
                 const nextDay = state.currentDay + 1;
                 if (nextDay > tripDays) {
                     newBeam.push(state);
@@ -114,8 +122,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                 const nextState = {
                     ...state,
                     currentDay: nextDay,
-                     currentTime: nextDayStart,
-                     hasLunchBreak: false
+                    currentTime: nextDayStart,
+                    hasLunchBreak: false
                 };
                 newBeam.push(nextState);
                 continue;
@@ -148,10 +156,26 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                 c.experienceScore = experienceScore;
             }
 
+            // Define score tiers (adjustable)
+            const HIGH_QUALITY = MIN_HIGH_QUALITY_SCORE;
+            const ACCEPTABLE = MIN_ACCEPTABLE_SCORE;
+
             candidates.sort((a, b) => b.score - a.score);
-            let topCandidates = candidates.filter(c => c.score >= 0.5);
-            if (topCandidates.length === 0) topCandidates = candidates; // fallback
-            topCandidates.sort((a, b) => b.score - a.score);
+
+            // 1. First try: high quality
+            let topCandidates = candidates.filter(c => c.score >= HIGH_QUALITY);
+
+            // 2. Second try: acceptable (but not great)
+            if (topCandidates.length === 0) {
+                topCandidates = candidates.filter(c => c.score >= ACCEPTABLE);
+            }
+
+            // 3. Last resort: take the single best candidate (avoids empty itinerary)
+            if (topCandidates.length === 0 && candidates.length > 0) {
+                topCandidates = [candidates[0]];
+            }
+
+            // Limit to beam width (e.g., 5)
             topCandidates = topCandidates.slice(0, 5);
 
             // Create new states for each candidate
@@ -188,6 +212,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     nextDayStart.setUTCHours(dayStartTime.getUTCHours(), dayStartTime.getUTCMinutes(), 0, 0);
                     newTime = nextDayStart;
                     newHasLunchBreak = false;   // reset for the new day
+                    console.log(`[DAY ${state.currentDay}] Ended at ${formatTime(visitEnd)}. Moving to day ${newDay} at ${formatTime(nextDayStart)}`);
                 }
 
                 const scheduledItem = {
@@ -215,6 +240,9 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     hasLunchBreak: newHasLunchBreak
                 };
 
+                // Log when a candidate is selected
+                console.log(`[DAY ${state.currentDay}] Selected: ${chosen.attraction_name} (score: ${candidate.score.toFixed(3)}, cost: ${chosen.cost}) | Time: ${formatTime(actualStart)} → ${formatTime(visitEnd)} | Remaining budget: ${(state.remainingBudget - chosen.cost).toFixed(2)}`);
+
                 newBeam.push(newState);
             }
         }
@@ -231,6 +259,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
     // Return the best route
     if (beam.length === 0) return [];
     const bestState = beam.reduce((a, b) => a.totalScore > b.totalScore ? a : b);
+    console.log(`Beam search completed after ${iteration} iterations. Best state has ${bestState.route.length} attractions, total score ${bestState.totalScore.toFixed(2)}, last day ${bestState.currentDay}`);
     return bestState.route;
 }
 
@@ -358,19 +387,24 @@ exports.generateItinerary = async (tripCode) => {
         if (route.length > 0) {
             const lastItem = route[route.length - 1];
             const lastLocation = { lat: lastItem.latitude, lng: lastItem.longitude };
-            const returnDistance = calculateDistance(
-                lastLocation.lat, lastLocation.lng,
-                trip.start_lat, trip.start_lng
-            );
+            const endLat = trip.end_lat ?? trip.start_lat;
+            const endLng = trip.end_lng ?? trip.start_lng;
+            const returnDistance = calculateDistance(lastLocation.lat, lastLocation.lng, endLat, endLng);
             const returnTravelMinutes = Math.ceil(returnDistance / systemConfig.travel_speed_kmh * 60);
+
+            // Determine if this is a point-to-point trip (different end location)
+            const isPointToPoint = (Number(trip.end_lat) !== Number(trip.start_lat)) || (Number(trip.end_lng) !== Number(trip.start_lng));
+            const returnName = isPointToPoint ? "Return to end point" : "Return to start point";
+            const destLat = isPointToPoint ? trip.end_lat : trip.start_lat;
+            const destLng = isPointToPoint ? trip.end_lng : trip.start_lng;
 
             const returnItem = {
                 day_number: lastItem.day_number,
                 attraction_id: null,
                 attraction_code: null,
-                attraction_name: "Return to start point",
-                latitude: trip.start_lat,
-                longitude: trip.start_lng,
+                attraction_name: returnName,
+                latitude: destLat,
+                longitude: destLng,
                 visit_start_time: lastItem.visit_end_time,
                 visit_end_time: new Date(lastItem.visit_end_time.getTime() + returnTravelMinutes * 60000),
                 distance_from_previous: returnDistance,

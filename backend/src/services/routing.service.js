@@ -2,7 +2,7 @@
 
 const { calculateDistance } = require('../utils/distance');
 const { calculateTravelMinutes } = require('../utils/travelTime');
-const { addMinutes, parseTime } = require('../utils/time');
+const { addMinutes, parseTime, formatTime } = require('../utils/time');
 const { SCORING_CONFIG } = require('./scoring.config');
 
 const distanceCache = new Map();
@@ -75,6 +75,12 @@ exports.buildCandidates = (remaining, currentState, systemConfig, budget) => {
         );
 
         if (result) candidates.push(result);
+    }
+
+    // Optional debug summary: if no candidates, log context to help debugging
+    if (candidates.length === 0 && remaining.length > 0) {
+        const names = remaining.map(r => r.attraction_name || r.attraction_id).slice(0, 5).join(', ');
+        console.log(`No candidates for remaining attractions (${names}${remaining.length > 5 ? ', ...' : ''}). Budget: ${budget}, time: ${formatTime(currentState.time)}`);
     }
 
     return candidates;
