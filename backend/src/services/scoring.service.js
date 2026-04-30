@@ -90,15 +90,55 @@ exports.computeScore = ({
     waitMinutes,
     cost,
     distance = 0,
-    maxCost              // <-- new parameter
+    maxCost,
+    currentDay,
+    totalDays,
+    currentTime,
+    remainingBudget
 }) => {
+
     const P = clamp01(basePreference);
     const E = clamp01(experienceScore);
-    const rawTravel = Math.min(travelMinutes / SCORING_CONFIG.limits.maxTravelMin, 1);
-    const T = Math.min(rawTravel * 1.2, 1);
-    const C = Math.min(cost / maxCost, 1);    // <-- use dynamic maxCost
+
+    const T = Math.min(travelMinutes / SCORING_CONFIG.limits.maxTravelMin, 1);
     const W = Math.min(waitMinutes / SCORING_CONFIG.limits.maxWaitMin, 1);
+    const C = Math.min(cost / maxCost, 1);
+
     const clusterPenalty = distance > 2 ? distance * 0.1 : 0;
+
+    // =========================================================
+    // 🔥 1. DAY-AWARE SCORING (THIS IS THE CORE FIX)
+    // =========================================================
+
+    const dayPressure = currentDay / totalDays;
+
+    // later days = more urgency → higher score pressure
+    const lateGameBoost = dayPressure * 0.25;
+
+    // =========================================================
+    // 🔥 2. TIME-OF-DAY STRUCTURE
+    // =========================================================
+
+    const hour = currentTime?.getUTCHours?.() ?? 12;
+
+    let timeBonus = 0;
+
+    if (hour >= 18) timeBonus = 0.2;
+    else if (hour <= 10) timeBonus = -0.05;
+
+    // =========================================================
+    // 🔥 3. BUDGET PRESSURE (VERY IMPORTANT FOR YOUR BUG)
+    // =========================================================
+
+    const budgetPressure = remainingBudget > 0
+        ? cost / remainingBudget
+        : 1;
+
+    const budgetPenalty = budgetPressure * 0.15;
+
+    // =========================================================
+    // FINAL SCORE
+    // =========================================================
 
     const score =
         SCORING_CONFIG.weights.preference * P +
@@ -106,7 +146,10 @@ exports.computeScore = ({
         SCORING_CONFIG.weights.travel * T -
         SCORING_CONFIG.weights.cost * C -
         SCORING_CONFIG.weights.wait * W -
-        clusterPenalty;
+        clusterPenalty +
+        lateGameBoost +
+        timeBonus -
+        budgetPenalty;
 
     return score;
 };
