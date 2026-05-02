@@ -36,7 +36,7 @@ export const CreateTripPage = () => {
         if (!startDate) newErrors.startDate = "Start date is required";
         if (!endDate) newErrors.endDate = "End date is required";
         if (!budget) newErrors.budget = "Budget is required";
-        if (budget && Number(budget) <= 0) newErrors.budget = "Budget must be greater than 0";
+        if (budget && (isNaN(Number(budget)) || Number(budget) < 5000)) newErrors.budget = "Budget must be at least 5000";
         if (!startLat || !startLng) newErrors.startLocation = "Please select a start location";
         if (!endLat || !endLng) newErrors.endLocation = "Please select an end location";
 
@@ -264,7 +264,6 @@ export const CreateTripPage = () => {
                                     } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none`}
                                     placeholder="200000"
                                     min="0"
-                                    step="1000"
                                 />
                             </div>
                             <FieldError error={errors.budget} />

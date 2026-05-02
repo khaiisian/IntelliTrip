@@ -4,7 +4,115 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { generateItinerary } from '../../api/itinerary.api';
-import { getAttractionByCode } from '../../api/attraction.api';
+
+const createNumberedIcon = (number) => {
+    return L.divIcon({
+        className: 'custom-number-icon',
+        html: `
+            <div style="
+                background-color: #1E3A8A;
+                color: white;
+                border-radius: 50%;
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid white;
+                box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            ">
+                ${number}
+            </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+    });
+};
+
+const GroupedPopup = ({ attractions }) => {
+    return (
+        <div className="p-2 max-w-xs">
+            <div className="font-bold mb-2 text-sm">
+                📍 {attractions.length} attraction{attractions.length > 1 ? 's' : ''} at this location
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+                {attractions.map((att, idx) => (
+                    <div key={idx} className="border-t pt-1 text-xs first:border-t-0 first:pt-0">
+                        <div className="font-semibold">
+                            <span className="inline-block w-5 text-[#1E3A8A] font-bold">
+                                {att.originalIndex + 1}.
+                            </span>
+                            {att.attraction_name}
+                        </div>
+                        <div className="text-gray-600 ml-5">
+                            {att.visit_start_time} – {att.visit_end_time}
+                            {att.duration_minutes && ` (${att.duration_minutes} min)`}
+                        </div>
+                        {att.final_score > 0 && (
+                            <div className="text-gray-500 ml-5">
+                                Score: {att.final_score.toFixed(2)}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const createStartIcon = () => {
+    return L.divIcon({
+        className: 'custom-start-icon',
+        html: `
+            <div style="
+                background-color: #10B981;
+                color: white;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid white;
+                box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            ">
+                S
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
+};
+
+const createEndIcon = () => {
+    return L.divIcon({
+        className: 'custom-end-icon',
+        html: `
+            <div style="
+                background-color: #EF4444;
+                color: white;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid white;
+                box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            ">
+                E
+            </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
+};
 
 // Fix for default marker icons in Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -22,8 +130,6 @@ export const TripItineraryPage = () => {
     const [error, setError] = useState('');
     const [itineraryData, setItineraryData] = useState(null);
     const [selectedDay, setSelectedDay] = useState('1');
-    const [attractionsDetails, setAttractionsDetails] = useState({}); // key: attraction_code
-    const [fetchingMapData, setFetchingMapData] = useState(false);
 
     // 1. Fetch the generated itinerary
     useEffect(() => {
@@ -41,47 +147,6 @@ export const TripItineraryPage = () => {
         };
         fetchItinerary();
     }, [tripCode]);
-
-    // 2. When selected day changes, fetch attraction details for that day's attractions using attraction_code
-    useEffect(() => {
-        if (!itineraryData) return;
-
-        const dayAttractions = itineraryData.byDay[selectedDay] || [];
-        // Assuming each attraction in itinerary has an 'attraction_code' field
-        const attractionCodes = dayAttractions.map(a => a.attraction_code);
-        const toFetch = attractionCodes.filter(code => !attractionsDetails[code]);
-
-        if (toFetch.length === 0) return;
-
-        const fetchDetails = async () => {
-            setFetchingMapData(true);
-            try {
-                const promises = toFetch.map(async (code) => {
-                    try {
-                        const res = await getAttractionByCode(code);
-                        // console.log(res)
-                        console.log('Received data for code', code, res.data);
-
-                        return { code, data: res.data };
-                    } catch (err) {
-                        console.error(`Failed to fetch attraction ${code}`, err);
-                        return null;
-                    }
-                });
-                const results = await Promise.all(promises);
-                const newDetails = {};
-                results.forEach(r => {
-                    if (r) newDetails[r.code] = r.data;
-                });
-                setAttractionsDetails(prev => ({ ...prev, ...newDetails }));
-            } finally {
-                setFetchingMapData(false);
-            }
-        };
-        fetchDetails();
-        console.log('Attraction codes to fetch:', toFetch);
-
-    }, [selectedDay, itineraryData, attractionsDetails]);
 
     // Helper functions
     const getDuration = (start, end) => {
@@ -135,45 +200,97 @@ export const TripItineraryPage = () => {
     const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
     const currentDayAttractions = byDay[selectedDay] || [];
 
-    // Build markers for the map using fetched details (by attraction_code)
-    const dayMarkers = currentDayAttractions
-        .map(att => {
-            const details = attractionsDetails[att.attraction_code];
+    const startLat = parseFloat(trip.start_lat);
+    const startLng = parseFloat(trip.start_lng);
+    const endLat = parseFloat(trip.end_lat);
+    const endLng = parseFloat(trip.end_lng);
 
-            console.log('Details for', att.attraction_code, details);
+    const hasValidStart = !isNaN(startLat) && !isNaN(startLng);
+    const hasValidEnd = !isNaN(endLat) && !isNaN(endLng);
 
-            console.log(JSON.stringify(details, null, 2));
+    // Group attractions by coordinates (rounded to 6 decimals)
+    const coordGroups = new Map();
 
-            if (!details) return null;
-            // Adjust field names according to your API response
-            // const lat = parseFloat(details.latitude) || parseFloat(details.lat);
-            // const lng = parseFloat(details.longitude) || parseFloat(details.lng);
+    currentDayAttractions.forEach((att, idx) => {
+        const lat = parseFloat(att.latitude);
+        const lng = parseFloat(att.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
 
-            const data = details.data; // get the inner data object
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (!coordGroups.has(key)) {
+            coordGroups.set(key, { lat, lng, attractions: [] });
+        }
+        coordGroups.get(key).attractions.push({ ...att, originalIndex: idx });
+    });
 
-            const lat = parseFloat(data.latitude);
-            const lng = parseFloat(data.longitude);
+    // Build markers: one per coordinate group
+    const groupedMarkers = Array.from(coordGroups.values()).map(group => ({
+        lat: group.lat,
+        lng: group.lng,
+        attractions: group.attractions,
+    }));
 
-            console.log('Parsed lat/lng:', lat, lng);
-
-            console.log('Parsed lat/lng:', lat, lng);
-
-            if (isNaN(lat) || isNaN(lng)) return null;
-
-            return {
-                ...att,
-                lat,
-                lng,
-                name: att.attraction_name,
-            };
+    // For polyline: use original sequence (keep all original points, even duplicates)
+    const polylinePositions = currentDayAttractions
+        .filter(att => {
+            const lat = parseFloat(att.latitude);
+            const lng = parseFloat(att.longitude);
+            return !isNaN(lat) && !isNaN(lng);
         })
-        .filter(Boolean);
+        .map(att => [parseFloat(att.latitude), parseFloat(att.longitude)]);
 
-    const polylinePositions = dayMarkers.map(m => [m.lat, m.lng]);
+    // -------- Build full polyline including start and end points --------
+    let fullPolylinePositions = [];
 
-    const mapCenter = dayMarkers.length > 0
-        ? [dayMarkers[0].lat, dayMarkers[0].lng]
-        : [21.1702, 94.8679]; // fallback to Bagan
+    // Add start point if valid
+    if (hasValidStart) {
+        fullPolylinePositions.push([startLat, startLng]);
+    }
+
+    // Add all attraction points
+    fullPolylinePositions.push(...polylinePositions);
+
+    // Add end point if valid and not already the same as the last attraction
+    if (hasValidEnd) {
+        const lastAttraction = polylinePositions.length > 0
+            ? polylinePositions[polylinePositions.length - 1]
+            : null;
+        const isEndSameAsLast = lastAttraction &&
+            Math.abs(lastAttraction[0] - endLat) < 0.000001 &&
+            Math.abs(lastAttraction[1] - endLng) < 0.000001;
+        if (!isEndSameAsLast) {
+            fullPolylinePositions.push([endLat, endLng]);
+        }
+    }
+
+    // Remove consecutive duplicate points
+    const uniquePolyline = [];
+    for (let i = 0; i < fullPolylinePositions.length; i++) {
+        if (i === 0) {
+            uniquePolyline.push(fullPolylinePositions[i]);
+        } else {
+            const prev = fullPolylinePositions[i - 1];
+            const curr = fullPolylinePositions[i];
+            if (prev[0] !== curr[0] || prev[1] !== curr[1]) {
+                uniquePolyline.push(curr);
+            }
+        }
+    }
+    // --------------------------------------------------------------
+
+    console.log('Day', selectedDay, 'itinerary attractions:', currentDayAttractions.map(att => ({
+        name: att.attraction_name,
+        attraction_code: att.attraction_code,
+        latitude: att.latitude,
+        longitude: att.longitude,
+        validCoords: !isNaN(parseFloat(att.latitude)) && !isNaN(parseFloat(att.longitude)),
+    })));
+
+    const mapCenter = groupedMarkers.length > 0
+        ? [groupedMarkers[0].lat, groupedMarkers[0].lng]
+        : hasValidStart
+        ? [startLat, startLng]
+        : [21.1702, 94.8679];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -260,15 +377,7 @@ export const TripItineraryPage = () => {
                             </h3>
                         </div>
                         <div className="h-full p-2">
-                            {fetchingMapData ? (
-                                <div className="flex items-center justify-center h-full text-gray-500">
-                                    <svg className="animate-spin h-6 w-6 text-[#1E3A8A] mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Loading map data...
-                                </div>
-                            ) : dayMarkers.length > 0 ? (
+                            {groupedMarkers.length > 0 || hasValidStart || hasValidEnd ? (
                                 <MapContainer
                                     center={mapCenter}
                                     zoom={13}
@@ -279,17 +388,48 @@ export const TripItineraryPage = () => {
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                     />
-                                    {dayMarkers.map((marker, idx) => (
-                                        <Marker key={idx} position={[marker.lat, marker.lng]}>
+
+                                    {/* Start location marker */}
+                                    {hasValidStart && (
+                                        <Marker position={[startLat, startLng]} icon={createStartIcon()}>
                                             <Popup>
-                                                <strong>{marker.attraction_name}</strong><br />
-                                                {marker.visit_start_time} – {marker.visit_end_time}
+                                                <strong>🚩 Trip Start</strong><br />
+                                                {trip.trip_name} begins here
+                                            </Popup>
+                                        </Marker>
+                                    )}
+
+                                    {/* End location marker */}
+                                    {hasValidEnd && (
+                                        <Marker position={[endLat, endLng]} icon={createEndIcon()}>
+                                            <Popup>
+                                                <strong>🏁 Trip End</strong><br />
+                                                Final destination
+                                            </Popup>
+                                        </Marker>
+                                    )}
+
+                                    {/* Attraction markers (grouped) */}
+                                    {groupedMarkers.map((marker, idx) => (
+                                        <Marker
+                                            key={idx}
+                                            position={[marker.lat, marker.lng]}
+                                            icon={createNumberedIcon(
+                                                marker.attractions.length > 1
+                                                    ? `${marker.attractions.length}x`
+                                                    : marker.attractions[0].originalIndex + 1
+                                            )}
+                                        >
+                                            <Popup>
+                                                <GroupedPopup attractions={marker.attractions} />
                                             </Popup>
                                         </Marker>
                                     ))}
-                                    {polylinePositions.length > 1 && (
+
+                                    {/* Polyline for the complete route (start → attractions → end) */}
+                                    {uniquePolyline.length > 1 && (
                                         <Polyline
-                                            positions={polylinePositions}
+                                            positions={uniquePolyline}
                                             color="#F59E0B"
                                             weight={4}
                                             opacity={0.7}

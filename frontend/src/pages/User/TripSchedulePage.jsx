@@ -59,18 +59,12 @@ export const TripSchedulePage = () => {
             const start = new Date(`2000-01-01T${startTime}:00`);
             const end = new Date(`2000-01-01T${endTime}:00`);
 
-            // Handle overnight schedules (end time next day)
-            if (end < start) {
-                end.setDate(end.getDate() + 1);
-            }
-
-            const diffMs = end - start;
-            const diffHours = diffMs / (1000 * 60 * 60);
-
-            if (diffHours < 0) {
+            if (start >= end) {
                 setTimeError("End time must be after start time");
                 setDailyHours(0);
             } else {
+                const diffMs = end - start;
+                const diffHours = diffMs / (1000 * 60 * 60);
                 setDailyHours(diffHours);
                 setTimeError("");
             }
