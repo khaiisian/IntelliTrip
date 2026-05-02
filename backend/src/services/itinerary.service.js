@@ -45,7 +45,7 @@ function estimateFutureScore(remaining, chosenId, remainingDays) {
 /**
  * Generate route using beam search for better optimization
  */
-function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost) {
+function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost, endLocation) {
 
     if (!attractions?.length) return [];
 
@@ -100,7 +100,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
             const currentState = {
                 location: state.currentLocation,
                 time: currentTime,
-                dayEnd: dayEnd
+                dayEnd: dayEnd,
+                endLocation: endLocation
             };
 
             // Build feasible candidates
@@ -206,6 +207,8 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     waitMinutes: c.waitMinutes,
                     cost: c.attraction.cost,
                     distance: c.distance,
+                    toEndDistance: c.toEndDistance,
+                    toEndDistanceNormalized: c.toEndDistanceNormalized,
                     maxCost,
 
                     currentDay: state.currentDay,
@@ -457,6 +460,7 @@ exports.generateItinerary = async (tripCode) => {
             systemConfig,
             scoringService,
             maxCost
+            , { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng }
         );
 
         console.log(route)
@@ -473,48 +477,14 @@ exports.generateItinerary = async (tripCode) => {
             throw { statusCode: 400, message: "Could not schedule any attractions" };
         }
 
-        // Add return to start point
-        if (route.length > 0) {
-            const lastItem = route[route.length - 1];
-            const lastLocation = { lat: lastItem.latitude, lng: lastItem.longitude };
-            const endLat = trip.end_lat ?? trip.start_lat;
-            const endLng = trip.end_lng ?? trip.start_lng;
-            const returnDistance = calculateDistance(lastLocation.lat, lastLocation.lng, endLat, endLng);
-            const returnTravelMinutes = Math.ceil(returnDistance / systemConfig.travel_speed_kmh * 60);
-
-            // Determine if this is a point-to-point trip (different end location)
-            const isPointToPoint = (Number(trip.end_lat) !== Number(trip.start_lat)) || (Number(trip.end_lng) !== Number(trip.start_lng));
-            const returnName = isPointToPoint ? "Return to end point" : "Return to start point";
-            const destLat = isPointToPoint ? trip.end_lat : trip.start_lat;
-            const destLng = isPointToPoint ? trip.end_lng : trip.start_lng;
-
-            const returnItem = {
-                day_number: lastItem.day_number,
-                attraction_id: null,
-                attraction_code: null,
-                attraction_name: returnName,
-                latitude: destLat,
-                longitude: destLng,
-                visit_start_time: lastItem.visit_end_time,
-                visit_end_time: new Date(lastItem.visit_end_time.getTime() + returnTravelMinutes * 60000),
-                distance_from_previous: returnDistance,
-                travel_minutes: returnTravelMinutes,
-                final_score: 0,
-                duration_minutes: 0,
-                cost: 0,
-                experienceScore: 0,
-                lookahead_score: 0
-            };
-
-            route.push(returnItem);
-        }
-
         // 7. Convert route items to the format expected by the response (use day_number from route)
         const scheduledItems = route.map(item => ({
             day_number: item.day_number,
             attraction_id: item.attraction_id,
             attraction_code: item.attraction_code,
             attraction_name: item.attraction_name,
+            latitude: item.latitude,
+            longitude: item.longitude,
             visit_start_time: formatTime(item.visit_start_time),
             visit_end_time: formatTime(item.visit_end_time),
             distance_from_previous: item.distance_from_previous,

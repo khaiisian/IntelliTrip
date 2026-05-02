@@ -14,12 +14,19 @@ const generateCode = async (tableName, columnName, prefix, padLength = 4) => {
     });
 
     let lastNumber = 0;
+
     if (lastRecord?.[columnName]) {
-        const parts = lastRecord[columnName].split('-');
-        lastNumber = parseInt(parts[1], 10);
+        const match = lastRecord[columnName].match(/\d+$/);
+        if (match) {
+            const parsed = parseInt(match[0], 10);
+            lastNumber = isNaN(parsed) ? 0 : parsed;
+        }
     }
 
-    const nextNumber = (lastNumber + 1).toString().padStart(padLength, '0');
+    const nextNumber = (lastNumber + 1)
+        .toString()
+        .padStart(padLength, '0');
+
     return `${prefix}-${nextNumber}`;
 };
 

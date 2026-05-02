@@ -90,6 +90,7 @@ exports.computeScore = ({
     waitMinutes,
     cost,
     distance = 0,
+    toEndDistanceNormalized = 0,
     maxCost,
     currentDay,
     totalDays,
@@ -137,6 +138,11 @@ exports.computeScore = ({
     const budgetPenalty = budgetPressure * 0.15;
 
     // =========================================================
+    // 🔥 4. DISTANCE-TO-END SOFT PENALTY
+    // Penalize candidates that leave the user far from endpoint (soft bias)
+    const endPenalty = (toEndDistanceNormalized ?? 0) * 0.15;
+
+    // =========================================================
     // FINAL SCORE
     // =========================================================
 
@@ -149,7 +155,8 @@ exports.computeScore = ({
         clusterPenalty +
         lateGameBoost +
         timeBonus -
-        budgetPenalty;
+        budgetPenalty -
+        endPenalty;
 
     return score;
 };

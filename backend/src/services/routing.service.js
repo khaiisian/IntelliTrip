@@ -16,7 +16,7 @@ function getDistance(a, b) {
     return dist;
 }
 
-function isFeasible(currentLocation, currentTime, attraction, dayEnd, systemConfig, remainingBudget) {
+function isFeasible(currentLocation, currentTime, attraction, dayEnd, systemConfig, remainingBudget, endLocation) {
 
     // HARD CONSTRAINT: Budget must be respected
     if (Number(attraction.cost) > remainingBudget) {
@@ -48,6 +48,27 @@ function isFeasible(currentLocation, currentTime, attraction, dayEnd, systemConf
 
     if (endTime > closeMin || endTime > dayEndMin) return null;
 
+    // ===============================
+    // RETURN FEASIBILITY CHECK (NEW)
+    // Ensure we can finish the visit and return to the endpoint before day end
+    const endpoint = endLocation || {
+        lat: systemConfig.end_lat ?? systemConfig.start_lat,
+        lng: systemConfig.end_lng ?? systemConfig.start_lng
+    };
+
+    const returnDistance = getDistance({
+        lat: attraction.latitude,
+        lng: attraction.longitude
+    }, endpoint);
+
+    const returnMinutes = calculateTravelMinutes(returnDistance, systemConfig.travel_speed_kmh);
+
+    const finishVisitTime = arrivalTime.getTime() + (wait * 60000) + (attraction.duration_minutes * 60000);
+    const finishDate = new Date(finishVisitTime);
+    const finishMin = finishDate.getUTCHours() * 60 + finishDate.getUTCMinutes();
+
+    if (finishMin + returnMinutes > dayEndMin) return null;
+
     return {
         attraction,
         distance,
@@ -64,6 +85,12 @@ exports.buildCandidates = (remaining, currentState, systemConfig, budget) => {
 
     const candidates = [];
 
+    // derive endpoint (prefer explicit endLocation in currentState)
+    const endLocation = currentState.endLocation || {
+        lat: systemConfig.end_lat ?? systemConfig.start_lat,
+        lng: systemConfig.end_lng ?? systemConfig.start_lng
+    };
+
     for (const attr of remaining) {
         const result = isFeasible(
             currentState.location,
@@ -71,10 +98,30 @@ exports.buildCandidates = (remaining, currentState, systemConfig, budget) => {
             attr,
             currentState.dayEnd,
             systemConfig,
-            budget
+            budget,
+            endLocation
         );
 
         if (result) candidates.push(result);
+    }
+
+    // Enrich candidates with endpoint-aware distance metrics (normalized)
+    for (const c of candidates) {
+        try {
+            const toEndDistance = getDistance({
+                lat: c.attraction.latitude,
+                lng: c.attraction.longitude
+            }, endLocation);
+
+            const maxD = SCORING_CONFIG.limits.maxConsideredDistanceKm || 20;
+            const toEndNormalized = Math.min(toEndDistance / maxD, 1);
+
+            c.toEndDistance = toEndDistance;
+            c.toEndDistanceNormalized = toEndNormalized;
+        } catch (err) {
+            c.toEndDistance = null;
+            c.toEndDistanceNormalized = 1; // be conservative
+        }
     }
 
     // Optional debug summary: if no candidates, log context to help debugging
