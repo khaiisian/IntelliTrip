@@ -95,7 +95,9 @@ exports.computeScore = ({
     currentDay,
     totalDays,
     currentTime,
-    remainingBudget
+    remainingBudget,
+    todaySpent,
+    idealDailyBudget
 }) => {
 
     const P = clamp01(basePreference);
@@ -137,6 +139,11 @@ exports.computeScore = ({
 
     const budgetPenalty = budgetPressure * 0.15;
 
+    const projectedSpend = Number(todaySpent || 0) + Number(cost || 0);
+    const dailyBudgetPenalty = idealDailyBudget > 0 && projectedSpend > idealDailyBudget
+        ? (projectedSpend - idealDailyBudget) / idealDailyBudget
+        : 0;
+
     // =========================================================
     // 🔥 4. DISTANCE-TO-END SOFT PENALTY
     // Penalize candidates that leave the user far from endpoint (soft bias)
@@ -156,7 +163,8 @@ exports.computeScore = ({
         lateGameBoost +
         timeBonus -
         budgetPenalty -
-        endPenalty;
+        endPenalty -
+        dailyBudgetPenalty * 0.3;
 
     return score;
 };

@@ -11,6 +11,7 @@ const systemConfigRepo = require('../repositories/systemConfig.repository');
 
 const scoringService = require('../services/scoring.service');
 const routingService = require('../services/routing.service');
+const { buildTravelMatrix } = require('../services/matrix.service');
 
 function isWithinBestTime(attraction, visitStartTime) {
     if (!attraction.experiences || attraction.experiences.length === 0) return false;
@@ -45,7 +46,7 @@ function estimateFutureScore(remaining, chosenId, remainingDays) {
 /**
  * Generate route using beam search for better optimization
  */
-function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost, endLocation) {
+async function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost, endLocation, matrix) {
 
     if (!attractions?.length) return [];
 
@@ -56,7 +57,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
     // State: { route: [], currentLocation, currentTime, currentDay, remainingBudget, remainingAttractions: [], totalScore }
     const initialState = {
         route: [],
-        currentLocation: { lat: Number(startLocation.lat), lng: Number(startLocation.lng) },
+        currentLocation: { id: 'start', lat: Number(startLocation.lat), lng: Number(startLocation.lng) },
         currentTime: new Date(startTime),
         currentDay: 1,
         remainingBudget: Number(tripBudget) || 0,
@@ -105,7 +106,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
             };
 
             // Build feasible candidates
-            const candidates = routingService.buildCandidates(state.remainingAttractions, currentState, systemConfig, state.remainingBudget);
+            const candidates = await routingService.buildCandidates(state.remainingAttractions, currentState, systemConfig, state.remainingBudget, matrix);
 
             // ===============================
             // 🔥 NEW: Optional END_DAY action
@@ -193,13 +194,6 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     .filter(r => r.day_number === state.currentDay)
                     .reduce((sum, r) => sum + Number(r.cost || 0), 0);
 
-                const projectedSpend = todaySpent + Number(c.attraction.cost || 0);
-
-                const dailyBudgetPenalty =
-                    projectedSpend > idealDailyBudget
-                        ? (projectedSpend - idealDailyBudget) / idealDailyBudget
-                        : 0;
-
                 const score = scoring.computeScore({
                     basePreference: c.attraction.base_score,
                     experienceScore,
@@ -214,8 +208,10 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
                     currentDay: state.currentDay,
                     totalDays: tripDays,
                     currentTime: c.arrivalTime,
-                    remainingBudget: state.remainingBudget
-                }) - dailyBudgetPenalty * 0.3;
+                    remainingBudget: state.remainingBudget,
+                    todaySpent,
+                    idealDailyBudget
+                });
 
                 const futurePotential = estimateFutureScore(
                     state.remainingAttractions,
@@ -303,7 +299,7 @@ function generateRoute(startLocation, attractions, startTime, dayStartTime, dayE
 
                 const newState = {
                     route: [...state.route, scheduledItem],
-                    currentLocation: { lat: Number(chosen.latitude), lng: Number(chosen.longitude) },
+                    currentLocation: { id: chosen.attraction_id, lat: Number(chosen.latitude), lng: Number(chosen.longitude) },
                     currentTime: newTime,
                     currentDay: newDay,
                     remainingBudget: state.remainingBudget - Number(chosen.cost),
@@ -434,6 +430,13 @@ exports.generateItinerary = async (tripCode) => {
             throw { statusCode: 400, message: "No attractions fit within budget" };
         }
 
+        // 5.5. Build travel time matrix upfront
+        const matrix = await buildTravelMatrix(
+            { lat: trip.start_lat, lng: trip.start_lng },
+            selectedAttractions,
+            { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng }
+        );
+
         // 5. Determine start time (first day start)
         const startDateTime = new Date(trip.start_date);
         const dayStartTime = parseTime(schedule.day_start_time);
@@ -449,7 +452,7 @@ exports.generateItinerary = async (tripCode) => {
         ));
 
         // 6. Time‑aware routing with hard constraints (Layer 1)
-        const route = generateRoute(
+        const route = await generateRoute(
             { lat: trip.start_lat, lng: trip.start_lng },
             selectedAttractions,
             startTime,
@@ -459,8 +462,9 @@ exports.generateItinerary = async (tripCode) => {
             trip.budget,
             systemConfig,
             scoringService,
-            maxCost
-            , { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng }
+            maxCost,
+            { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng },
+            matrix // ✅ NEW
         );
 
         console.log(route)
