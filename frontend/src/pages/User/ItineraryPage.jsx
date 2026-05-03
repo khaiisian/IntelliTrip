@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { generateItinerary } from '../../api/itinerary.api';
+import { getRouteGeometry } from '../../api/route.api';
 
 const createNumberedIcon = (number) => {
     return L.divIcon({
@@ -130,6 +131,7 @@ export const TripItineraryPage = () => {
     const [error, setError] = useState('');
     const [itineraryData, setItineraryData] = useState(null);
     const [selectedDay, setSelectedDay] = useState('1');
+    const [routeGeometry, setRouteGeometry] = useState([]);
 
     // 1. Fetch the generated itinerary
     useEffect(() => {
@@ -147,6 +149,74 @@ export const TripItineraryPage = () => {
         };
         fetchItinerary();
     }, [tripCode]);
+
+    useEffect(() => {
+        if (!itineraryData) {
+            setRouteGeometry([]);
+            return;
+        }
+
+        const currentDayAttractions = itineraryData.byDay?.[selectedDay] || [];
+        const startLat = parseFloat(itineraryData.trip?.start_lat);
+        const startLng = parseFloat(itineraryData.trip?.start_lng);
+        const endLat = parseFloat(itineraryData.trip?.end_lat);
+        const endLng = parseFloat(itineraryData.trip?.end_lng);
+
+        const hasValidStart = !isNaN(startLat) && !isNaN(startLng);
+        const hasValidEnd = !isNaN(endLat) && !isNaN(endLng);
+
+        const polylinePositions = currentDayAttractions
+            .filter(att => {
+                const lat = parseFloat(att.latitude);
+                const lng = parseFloat(att.longitude);
+                return !isNaN(lat) && !isNaN(lng);
+            })
+            .map(att => [parseFloat(att.latitude), parseFloat(att.longitude)]);
+
+        let fullPolylinePositions = [];
+        if (hasValidStart) {
+            fullPolylinePositions.push([startLat, startLng]);
+        }
+        fullPolylinePositions.push(...polylinePositions);
+
+        if (hasValidEnd) {
+            const lastAttraction = polylinePositions.length > 0
+                ? polylinePositions[polylinePositions.length - 1]
+                : null;
+            const isEndSameAsLast = lastAttraction &&
+                Math.abs(lastAttraction[0] - endLat) < 0.000001 &&
+                Math.abs(lastAttraction[1] - endLng) < 0.000001;
+            if (!isEndSameAsLast) {
+                fullPolylinePositions.push([endLat, endLng]);
+            }
+        }
+
+        const uniquePolyline = [];
+        for (let i = 0; i < fullPolylinePositions.length; i++) {
+            if (i === 0) {
+                uniquePolyline.push(fullPolylinePositions[i]);
+            } else {
+                const prev = fullPolylinePositions[i - 1];
+                const curr = fullPolylinePositions[i];
+                if (prev[0] !== curr[0] || prev[1] !== curr[1]) {
+                    uniquePolyline.push(curr);
+                }
+            }
+        }
+
+        const fetchRoute = async () => {
+            if (uniquePolyline.length < 2) {
+                setRouteGeometry([]);
+                return;
+            }
+
+            const coords = uniquePolyline.map(p => [p[1], p[0]]);
+            const result = await getRouteGeometry(coords);
+            setRouteGeometry(result || []);
+        };
+
+        fetchRoute();
+    }, [selectedDay, itineraryData]);
 
     // Helper functions
     const getDuration = (start, end) => {
@@ -427,9 +497,9 @@ export const TripItineraryPage = () => {
                                     ))}
 
                                     {/* Polyline for the complete route (start → attractions → end) */}
-                                    {uniquePolyline.length > 1 && (
+                                    {routeGeometry.length > 1 && (
                                         <Polyline
-                                            positions={uniquePolyline}
+                                            positions={routeGeometry}
                                             color="#F59E0B"
                                             weight={4}
                                             opacity={0.7}
