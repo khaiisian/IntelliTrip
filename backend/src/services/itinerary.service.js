@@ -11,6 +11,7 @@ const systemConfigRepo = require('../repositories/systemConfig.repository');
 
 const scoringService = require('../services/scoring.service');
 const routingService = require('../services/routing.service');
+const orsService = require('../services/ors.service');
 const { buildTravelMatrix } = require('../services/matrix.service');
 
 function isWithinBestTime(attraction, visitStartTime) {
@@ -404,6 +405,7 @@ exports.generateItinerary = async (tripCode) => {
         const systemConfig = await systemConfigRepo.getSystemConfig();
 
         validateData(trip, preferences, schedule, attractions, experiences, systemConfig);
+        orsService.resetORSStats();
 
         // 2. Trip days
         const tripDays = scoringService.calculateTripDays(trip.start_date, trip.end_date);
@@ -537,5 +539,12 @@ exports.generateItinerary = async (tripCode) => {
         console.error('Error generating itinerary:', error);
         if (error.statusCode) throw error;
         throw { statusCode: 500, message: error.message || 'Failed to generate itinerary' };
+    } finally {
+        const { requestCount, fallbackCount, skippedByLimit } = orsService.getORSStats();
+        console.log('=== ORS SUMMARY ===');
+        console.log('Successful ORS calls:', requestCount);
+        console.log('Fallback used:', fallbackCount);
+        console.log('Skipped due to limit:', skippedByLimit);
+        console.log('====================');
     }
 };

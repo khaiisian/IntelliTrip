@@ -2,7 +2,7 @@ const { calculateDistance } = require('../utils/distance');
 const orsService = require('./ors.service');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const TOP_K_NEIGHBORS = 5;
+const TOP_K_NEIGHBORS = 2;
 
 function formatCoord(lat, lng) {
     return `${lat.toFixed(6)},${lng.toFixed(6)}`;
@@ -78,8 +78,10 @@ async function buildTravelMatrix(start, attractions, end) {
 
         let time;
         try {
-            if (dist < 2) {
+            if (dist < 3) {
                 time = Math.max(1, Math.ceil(dist * 2));
+            } else if (dist < 10) {
+                time = Math.max(1, Math.ceil(dist * 2.5));
             } else {
                 time = await orsService.getTravelTime(from, to);
             }

@@ -8,6 +8,9 @@ const cache = new Map();
 const pendingRequests = new Map();
 const limit = pLimit(2); // max 2 concurrent ORS requests
 let requestCount = 0; // for logging total requests
+let fallbackCount = 0; // counts ORS failures that used fallback estimates
+let skippedByLimit = 0; // counts route pairs skipped due to hard ORS call limit
+const MAX_ORS_CALLS = 20; // hard limit for ORS requests (hybrid-only uses ORS for longer trips)
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -41,48 +44,64 @@ exports.getTravelTime = async (start, end) => {
             throw new Error('ORS_API_KEY is not configured.');
         }
 
-        let response;
+        const dist = calculateDistance(start.lat, start.lng, end.lat, end.lng);
+        if (requestCount >= MAX_ORS_CALLS) {
+            skippedByLimit++;
+            const fallbackMinutes = Math.max(1, Math.ceil(dist * 3));
+            console.warn(`ORS call limit reached (${requestCount}/${MAX_ORS_CALLS}), using fallback estimate for ${key}: ${fallbackMinutes} min`);
+            cache.set(key, fallbackMinutes);
+            return fallbackMinutes;
+        }
 
-        for (let attempt = 1; attempt <= 5; attempt++) {
-            try {
-                response = await requestORS(start, end);
-                break;
-            } catch (err) {
-                const status = err.response?.status;
-                const retryAfter = Number(err.response?.headers?.['retry-after']) || 0;
+        try {
+            let response;
 
-                if (status === 429 && attempt < 5) {
-                    const waitMs = retryAfter > 0 ? retryAfter * 1000 : 2000 * (2 ** (attempt - 1));
-                    console.warn(`ORS 429, retrying after ${waitMs}ms (attempt ${attempt})`);
-                    await sleep(waitMs);
-                    continue;
+            for (let attempt = 1; attempt <= 5; attempt++) {
+                try {
+                    response = await requestORS(start, end);
+                    break;
+                } catch (err) {
+                    const status = err.response?.status;
+                    const retryAfter = Number(err.response?.headers?.['retry-after']) || 0;
+
+                    // REMOVED: Retry fallback for 429 (Rate Limit Hard Enforced)
+                    // Soft recovery disabled - 429 now fails immediately due to hard limit
+
+                    if (status === 404) {
+                        throw new Error(`ORS route not found for coordinates: ${start.lat},${start.lng} to ${end.lat},${end.lng}`);
+                    }
+
+                    if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
+                        throw new Error(`Network error: Unable to reach ORS API. Check internet connection and DNS settings. (${err.code})`);
+                    }
+
+                    throw err;
                 }
-
-                if (status === 404) {
-                    throw new Error(`ORS route not found for coordinates: ${start.lat},${start.lng} to ${end.lat},${end.lng}`);
-                }
-
-                if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
-                    throw new Error(`Network error: Unable to reach ORS API. Check internet connection and DNS settings. (${err.code})`);
-                }
-
-                throw err;
             }
+
+            if (!response) {
+                throw new Error('ORS travel time lookup failed after retrying.');
+            }
+
+            requestCount++;
+            if (requestCount % 5 === 0) {
+                console.log(`ORS calls so far: ${requestCount}`);
+            }
+            console.log(`ORS request ${requestCount} successful for ${key}`);
+
+            const route = response.data.routes[0];
+            const durationSeconds = route.summary.duration;
+            const minutes = Math.max(1, Math.ceil(durationSeconds / 60));
+
+            cache.set(key, minutes);
+            return minutes;
+        } catch (err) {
+            fallbackCount++;
+            const fallbackMinutes = Math.max(1, Math.ceil(dist * 3));
+            console.warn(`ORS fallback used for ${key}: ${fallbackMinutes} min`, err.message || err);
+            cache.set(key, fallbackMinutes);
+            return fallbackMinutes;
         }
-
-        if (!response) {
-            throw new Error('ORS travel time lookup failed after retrying.');
-        }
-
-        requestCount++;
-        console.log(`ORS request ${requestCount} successful for ${key}`);
-
-        const route = response.data.routes[0];
-        const durationSeconds = route.summary.duration;
-        const minutes = Math.max(1, Math.ceil(durationSeconds / 60));
-
-        cache.set(key, minutes);
-        return minutes;
     });
 
     pendingRequests.set(key, promise);
@@ -91,4 +110,11 @@ exports.getTravelTime = async (start, end) => {
     } finally {
         pendingRequests.delete(key);
     }
+};
+
+exports.getORSStats = () => ({ requestCount, fallbackCount, skippedByLimit });
+exports.resetORSStats = () => {
+    requestCount = 0;
+    fallbackCount = 0;
+    skippedByLimit = 0;
 };
