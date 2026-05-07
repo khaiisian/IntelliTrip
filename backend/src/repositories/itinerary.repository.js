@@ -1,59 +1,77 @@
 const prisma = require('../prisma');
-const generateCode = require('../utils/generateCode');
 
-exports.createItinerary = async (data) => {
+exports.create = async ({ trip_id, total_cost, itinerary_code, items }) => {
     return prisma.tbl_itinerary.create({
         data: {
-            itinerary_code: await generateCode('tbl_itinerary', 'itinerary_code', 'ITINERARY'),
-            ...data
-        }
-    });
-};
-
-exports.createItineraryItem = async (data) => {
-    return prisma.tbl_itinerary_item.create({
-        data: {
-            item_code: await generateCode('tbl_itinerary_item', 'item_code', 'ITEM'),
-            ...data
+            trip_id,
+            total_cost,
+            itinerary_code,
+            tbl_itinerary_item: {
+                create: items
+            }
+        },
+        include: {
+            tbl_itinerary_item: true
         }
     });
 };
 
 exports.findByTripId = async (tripId) => {
     return prisma.tbl_itinerary.findMany({
-        where: {
-            trip_id: Number(tripId),
-            is_deleted: false
-        },
+        where: { trip_id: Number(tripId) },
         include: {
             tbl_itinerary_item: {
                 include: {
                     tbl_attraction: true
-                },
-                orderBy: {
-                    day_number: 'asc'
                 }
             }
         },
-        orderBy: {
-            created_at: 'desc'
-        }
+        orderBy: { generated_at: 'desc' }
     });
 };
 
-exports.findByCode = async (code) => {
-    return prisma.tbl_itinerary.findFirst({
+exports.findAllByUserCode = async (userCode) => {
+    return prisma.tbl_itinerary.findMany({
         where: {
-            itinerary_code: code,
-            is_deleted: false
+            is_deleted: false,
+            tbl_trip: {
+                tbl_user: {
+                    user_code: userCode,
+                    is_deleted: false
+                }
+            }
         },
         include: {
             tbl_itinerary_item: {
                 include: {
                     tbl_attraction: true
-                },
-                orderBy: {
-                    day_number: 'asc'
+                }
+            },
+            tbl_trip: true
+        },
+        orderBy: { generated_at: 'desc' }
+    });
+};
+
+exports.findByCode = async (itineraryCode) => {
+    return prisma.tbl_itinerary.findFirst({
+        where: {
+            itinerary_code: itineraryCode,
+            is_deleted: false
+        },
+        include: {
+            tbl_trip: {
+                include: {
+                    tbl_user: true
+                }
+            },
+            tbl_itinerary_item: {
+                orderBy: [
+                    { day_number: 'asc' },
+                    { visit_start_time: 'asc' }
+                ],
+                include: {
+                    tbl_attraction: true
                 }
             }
         }

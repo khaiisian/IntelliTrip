@@ -3,6 +3,8 @@ const router = express.Router();
 const controller = require('../controllers/itinerary.controller');
 
 router.post('/trips/:code/generate-itinerary', controller.generateItinerary);
-router.post('/trips/:code/save-itinerary', controller.saveItinerary);
+router.post('/trips/:code/itineraries', controller.saveItinerary);
+router.get('/trips/:code/itineraries', controller.getSavedItinerary);
+router.get('/users/:code/itineraries', controller.getItinerariesByUserCode);
 
 module.exports = router;
