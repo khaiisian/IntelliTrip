@@ -5,3 +5,9 @@ export const generateItinerary = (code) =>
 
 export const saveItinerary = (code, payload) =>
     api.post(`/trips/${code}/itineraries`, payload);
+
+export const getSavedItinerary = (code) =>
+    api.get(`/trips/${code}/itineraries`);
+
+export const getUserItineraries = (code) =>
+    api.get(`/users/${code}/itineraries`);

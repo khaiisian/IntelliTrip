@@ -69,7 +69,7 @@ export const TripDetailPage = () => {
     const handleGenerate = async () => {
         setGenerating(true);
         try {
-            navigate(`/itinerary/${tripCode}`);
+            navigate(`/trip/${tripCode}/itinerary?mode=generate`, { state: { fromTripDetail: true } });
         } catch (err) {
             console.error('Error generating itinerary:', err);
             alert(err?.response?.data?.message || 'Failed to generate itinerary');
@@ -279,7 +279,7 @@ export const TripDetailPage = () => {
                         <div className="pt-4">
                             {hasItinerary ? (
                                 <button
-                                    onClick={() => navigate(`/trip/${tripCode}/itinerary`)}
+                                    onClick={() => navigate(`/trip/${tripCode}/itinerary?mode=view`, { state: { fromTripDetail: true } })}
                                     className="group relative w-full px-6 py-4 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-bold rounded-xl transition-all duration-300 hover:shadow-xl flex items-center justify-center gap-3 overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

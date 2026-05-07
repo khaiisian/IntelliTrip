@@ -102,6 +102,26 @@ export const Navbar = () => {
                                     </>
                                 )}
                             </NavLink>
+
+                            <NavLink
+                                to="/itineraries"
+                                className={({ isActive }) => `
+                                    relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                                    ${isActive
+                                    ? 'text-[#1E3A8A]'
+                                    : 'text-gray-600 hover:text-[#1E3A8A]'
+                                }
+                                `}
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        My Itineraries
+                                        {isActive && (
+                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
+                                        )}
+                                    </>
+                                )}
+                            </NavLink>
                         </div>
                     </div>
 
@@ -172,6 +192,19 @@ export const Navbar = () => {
                                             `}
                                         >
                                             Dashboard
+                                        </NavLink>
+                                        <NavLink
+                                            to="/itineraries"
+                                            onClick={() => setShowDropdown(false)}
+                                            className={({ isActive }) => `
+                                                block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200
+                                                ${isActive
+                                                ? 'bg-[#1E3A8A] text-white'
+                                                : 'text-gray-700 hover:bg-gray-50 hover:text-[#1E3A8A]'
+                                            }
+                                            `}
+                                        >
+                                            My Itineraries
                                         </NavLink>
                                     </div>
 

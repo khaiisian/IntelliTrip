@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { generateItinerary, saveItinerary } from '../../api/itinerary.api';
+import { generateItinerary, saveItinerary, getSavedItinerary } from '../../api/itinerary.api';
 import { getRouteGeometry } from '../../api/route.api';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const createNumberedIcon = (number) => {
     return L.divIcon({
@@ -164,6 +166,11 @@ const DayTab = ({ day, isActive, onClick }) => (
 export const TripItineraryPage = () => {
     const { tripCode } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const searchParams = new URLSearchParams(location.search);
+    const mode = searchParams.get('mode') || 'generate';
+    const cameFromTripDetail = location.state?.fromTripDetail === true;
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -173,23 +180,31 @@ export const TripItineraryPage = () => {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveSuccess, setSaveSuccess] = useState('');
+    const [exportingPDF, setExportingPDF] = useState(false);
 
-    // 1. Fetch the generated itinerary
+    // 1. Fetch the generated itinerary or saved itinerary based on mode
     useEffect(() => {
         const fetchItinerary = async () => {
             try {
                 setLoading(true);
-                const res = await generateItinerary(tripCode);
-                setItineraryData(res.data.data);
+                if (mode === 'generate') {
+                    const res = await generateItinerary(tripCode);
+                    console.log('📦 GENERATED data:', res.data.data);
+                    setItineraryData(res.data.data);
+                } else {
+                    const res = await getSavedItinerary(tripCode);
+                    console.log('📦 SAVED data:', res.data.data);
+                    setItineraryData(res.data.data);
+                }
             } catch (err) {
                 console.error('Error fetching itinerary:', err);
-                setError(err?.response?.data?.message || 'Failed to generate itinerary');
+                setError(err?.response?.data?.message || `Failed to ${mode === 'generate' ? 'generate' : 'load'} itinerary`);
             } finally {
                 setLoading(false);
             }
         };
         fetchItinerary();
-    }, [tripCode]);
+    }, [tripCode, mode]);
 
     useEffect(() => {
         if (!itineraryData) {
@@ -266,6 +281,14 @@ export const TripItineraryPage = () => {
         return (eh * 60 + em) - (sh * 60 + sm);
     };
 
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'MMK',
+            minimumFractionDigits: 0
+        }).format(amount);
+    };
+
     const handleSaveItinerary = async () => {
         if (!itineraryData) return;
 
@@ -299,6 +322,13 @@ export const TripItineraryPage = () => {
 
             await saveItinerary(tripCode, payload);
             setSaveSuccess('Itinerary saved successfully.');
+
+            // ✅ Navigate to view mode after successful save
+            // Optional: add a short delay to let the user see the success message
+            setTimeout(() => {
+                navigate(`/trip/${tripCode}/itinerary?mode=view`, { state: { fromTripDetail: cameFromTripDetail } });
+            }, 1500); // 1.5 seconds delay – adjust as needed
+
         } catch (err) {
             console.error('Error saving itinerary:', err);
             setSaveError(err?.response?.data?.message || 'Failed to save itinerary');
@@ -306,6 +336,188 @@ export const TripItineraryPage = () => {
             setSaving(false);
         }
     };
+
+const handleExportPDF = async () => {
+    if (!itineraryData) return;
+    setExportingPDF(true);
+
+    try {
+        const trip = itineraryData.trip || {};
+        const summary = itineraryData.summary || {};
+
+        // Helper to parse numeric value from string (e.g., "16.3 km" -> 16.3)
+        const parseNumeric = (value, defaultValue = 0) => {
+            if (value === undefined || value === null) return defaultValue;
+            if (typeof value === 'number') return isNaN(value) ? defaultValue : value;
+            const num = parseFloat(value);
+            return isNaN(num) ? defaultValue : num;
+        };
+
+        const totalDistance = parseNumeric(summary.totalDistance, 0);
+        const totalTravelTime = parseNumeric(summary.totalTravelTime, 0);
+        const totalCost = parseNumeric(summary.totalCost, 0);
+        const totalAttractions = parseNumeric(summary.totalAttractions, 0);
+
+        const safeNumber = (value, defaultValue = 0) => parseNumeric(value, defaultValue);
+
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'MMK', minimumFractionDigits: 0 }).format(amount);
+        };
+
+        // Create main container that fills the PDF width
+        const pdfContainer = document.createElement('div');
+        pdfContainer.style.width = '100%';
+        pdfContainer.style.padding = '0';
+        pdfContainer.style.margin = '0';
+        pdfContainer.style.backgroundColor = 'white';
+        pdfContainer.style.fontFamily = 'Arial, sans-serif';
+        pdfContainer.style.display = 'flex';
+        pdfContainer.style.justifyContent = 'center'; // centers inner wrapper
+
+        // Inner wrapper with fixed width and margin auto to center horizontally
+        const innerWrapper = document.createElement('div');
+        innerWrapper.style.width = '170mm';
+        innerWrapper.style.margin = '0 auto';
+        innerWrapper.style.padding = '0';
+
+        // Styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .pdf-header { 
+                margin: 10mm 0 25px 0;
+                background-color: #1E3A8A; 
+                color: white; 
+                padding: 25px; 
+                border-radius: 10px; 
+                text-align: center; 
+            }
+            .stats-row { 
+                display: flex; 
+                justify-content: center; 
+                gap: 10px;
+                margin: 0 0 30px 0;
+            }
+            .stat-card { 
+                flex: 1;
+                border: 1px solid #e5e7eb; 
+                padding: 12px; 
+                text-align: center; 
+                border-radius: 8px; 
+            }
+            .itinerary-content {
+                margin: 0;
+            }
+            .day-header { 
+                font-size: 18pt; 
+                color: #1E3A8A; 
+                border-bottom: 2px solid #1E3A8A; 
+                margin: 20px 0 15px 0; 
+                padding-bottom: 5px; 
+            }
+            .attraction-item { 
+                page-break-inside: avoid; 
+                margin-bottom: 12px; 
+                padding: 18px; 
+                border: 1px solid #f3f4f6; 
+                background-color: #f9fafb; 
+                border-radius: 8px; 
+            }
+            .attraction-name { 
+                font-size: 13pt; 
+                font-weight: bold; 
+                color: #111827; 
+                margin-bottom: 10px; 
+            }
+            .info-table { 
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+            }
+            .info-column {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .info-cell { 
+                font-size: 10pt; 
+                color: #4b5563; 
+            }
+            .label { font-weight: bold; color: #374151; margin-right: 5px; }
+        `;
+        pdfContainer.appendChild(style);
+
+        // Build HTML for days and attractions
+        const byDay = itineraryData.byDay || {};
+        const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
+        let daysHtml = '';
+
+        for (const dayKey of days) {
+            const attractions = byDay[dayKey] || [];
+            daysHtml += `<div class="day-header">Day ${dayKey}</div>`;
+            for (let idx = 0; idx < attractions.length; idx++) {
+                const attr = attractions[idx];
+                daysHtml += `
+                    <div class="attraction-item">
+                        <div class="attraction-name">${idx + 1}. ${attr.attraction_name}</div>
+                        <div class="info-table">
+                            <div class="info-column">
+                                <div class="info-cell"><span class="label">Time:</span> ${attr.visit_start_time} - ${attr.visit_end_time}</div>
+                                <div class="info-cell"><span class="label">Distance:</span> ${safeNumber(attr.distance_from_previous).toFixed(2)} km</div>
+                            </div>
+                            <div class="info-column">
+                                <div class="info-cell"><span class="label">Duration:</span> ${attr.duration_minutes || 0} min</div>
+                                <div class="info-cell"><span class="label">Travel Time:</span> ${attr.travel_minutes || 0} min</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Set inner HTML of the centered wrapper
+        innerWrapper.innerHTML = `
+            <div class="pdf-header">
+                <h1 style="margin: 0; font-size: 24pt;">${trip.trip_name || 'Trip Itinerary'}</h1>
+                <p style="margin: 8px 0 0 0; font-size: 12pt; opacity: 0.9;">
+                    ${trip.start_date ? new Date(trip.start_date).toLocaleDateString() : ''} - 
+                    ${trip.end_date ? new Date(trip.end_date).toLocaleDateString() : ''}
+                </p>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card"><strong>${totalAttractions}</strong><br/><small>Attractions</small></div>
+                <div class="stat-card"><strong>${formatCurrency(totalCost)}</strong><br/><small>Total Cost</small></div>
+                <div class="stat-card"><strong>${totalDistance.toFixed(1)} km</strong><br/><small>Distance</small></div>
+                <div class="stat-card"><strong>${Math.round(totalTravelTime)} min</strong><br/><small>Travel Time</small></div>
+            </div>
+
+            <div class="itinerary-content">
+                ${daysHtml}
+            </div>
+        `;
+
+        pdfContainer.appendChild(innerWrapper);
+
+        // Generate PDF
+        const doc = new jsPDF('p', 'mm', 'a4');
+        await doc.html(pdfContainer, {
+            callback: function (doc) {
+                doc.save(`${trip.trip_name || 'Itinerary'}_itinerary.pdf`);
+            },
+            margin: [10, 10, 10, 10],
+            autoPaging: 'text',
+            width: 190,
+            windowWidth: 1000
+        });
+
+    } catch (error) {
+        console.error('Export Error:', error);
+        alert('PDF Export failed.');
+    } finally {
+        setExportingPDF(false);
+    }
+};
 
     const formatDistance = (dist) => {
         if (dist === undefined || dist === null) return '-';
@@ -357,6 +569,8 @@ export const TripItineraryPage = () => {
     const { trip, summary, byDay } = itineraryData;
     const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
     const currentDayAttractions = byDay[selectedDay] || [];
+
+    console.log(`Day ${selectedDay} attractions:`, currentDayAttractions);
 
     const startLat = parseFloat(trip.start_lat);
     const startLng = parseFloat(trip.start_lng);
@@ -713,44 +927,86 @@ export const TripItineraryPage = () => {
                     </div>
                 </div>
 
-                {/* Buttons at bottom – Save Itinerary + Back to Trip Details */}
+                {/* Buttons at bottom – Save Itinerary + Export PDF + Back to Trip Details */}
                 <div className="mt-10 flex justify-end gap-4">
+                    {mode === 'generate' && (
+                        <button
+                            onClick={handleSaveItinerary}
+                            disabled={saving}
+                            className="relative group px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#10B981] to-[#059669] text-white hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden"
+                        >
+                            <span className="relative z-10 flex items-center gap-2">
+                                {saving ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                        </svg>
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        </svg>
+                                        Save Itinerary
+                                    </>
+                                )}
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        </button>
+                    )}
+
+                    {/* Export PDF Button - visible in both generate and view modes */}
                     <button
-                        onClick={handleSaveItinerary}
-                        disabled={saving}
-                        className="relative group px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#10B981] to-[#059669] text-white hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden"
+                        onClick={handleExportPDF}
+                        disabled={exportingPDF}
+                        className="relative group px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden"
                     >
                         <span className="relative z-10 flex items-center gap-2">
-                            {saving ? (
+                            {exportingPDF ? (
                                 <>
                                     <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                                     </svg>
-                                    Saving...
+                                    Exporting...
                                 </>
                             ) : (
                                 <>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
-                                    Save Itinerary
+                                    Export PDF
                                 </>
                             )}
                         </span>
                         <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </button>
 
-                    <button
-                        onClick={() => navigate(`/tripDetail/${tripCode}`)}
-                        className="group relative px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-semibold rounded-xl hover:shadow-xl transition-all duration-300 flex items-center gap-2 overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <svg className="w-5 h-5 relative z-10 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        <span className="relative z-10">Back to Trip Details</span>
-                    </button>
+                    {cameFromTripDetail ? (
+                        <button
+                            onClick={() => navigate(`/tripDetail/${tripCode}`)}
+                            className="group relative px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-semibold rounded-xl hover:shadow-xl transition-all duration-300 flex items-center gap-2 overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <svg className="w-5 h-5 relative z-10 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            <span className="relative z-10">Back to Trip Details</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => navigate('/tripLists')}
+                            className="group relative px-6 py-3 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white font-semibold rounded-xl hover:shadow-xl transition-all duration-300 flex items-center gap-2 overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <svg className="w-5 h-5 relative z-10 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            <span className="relative z-10">Back to My Itineraries</span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Success/Error messages – placed below buttons for clarity */}
