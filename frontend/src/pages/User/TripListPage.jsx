@@ -90,13 +90,17 @@ export const TripsPage = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 text-[#1E3A8A] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-gray-600">Loading your trips...</p>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A8A]/20 to-[#2563EB]/20 rounded-full blur-xl animate-pulse"></div>
+                    <div className="relative bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-2xl text-center">
+                        <svg className="animate-spin h-12 w-12 text-[#1E3A8A] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p className="text-gray-600 font-medium">Loading your trips...</p>
+                        <p className="text-xs text-gray-400 mt-2">Please wait a moment</p>
+                    </div>
                 </div>
             </div>
         );
@@ -104,16 +108,18 @@ export const TripsPage = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-                    <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center border border-gray-100">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h2>
-                    <p className="text-gray-600 mb-6">{error}</p>
+                    <p className="text-gray-500 mb-6">{error}</p>
                     <button
                         onClick={() => window.location.reload()}
-                        className="px-6 py-3 bg-[#1E3A8A] text-white rounded-xl hover:bg-[#2563EB] transition-colors"
+                        className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                     >
                         Try Again
                     </button>
@@ -123,54 +129,83 @@ export const TripsPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="mb-8 text-center">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">My Trips</h1>
-                    <p className="text-lg text-gray-600">Manage and view all your planned adventures</p>
+                {/* Header with decorative elements */}
+                <div className="relative mb-12 text-center">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#1E3A8A]/5 rounded-full blur-3xl -z-10"></div>
+                    <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4 shadow-sm border border-gray-100">
+                        <span className="w-2 h-2 rounded-full bg-[#1E3A8A] animate-pulse"></span>
+                        <span className="text-xs font-medium text-gray-600">Your Adventures</span>
+                    </div>
+                    <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-[#1E3A8A] via-[#2563EB] to-[#3B82F6] bg-clip-text text-transparent mb-3">
+                        My Trips
+                    </h1>
+                    <p className="text-gray-500 max-w-md mx-auto">
+                        Manage and view all your planned adventures in one place
+                    </p>
                 </div>
 
-                {/* Search and Create Bar */}
-                <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                    <div className="relative w-full sm:w-96">
+                {/* Search and Create Bar - Enhanced */}
+                <div className="mb-10 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full sm:w-96 group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#1E3A8A] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
                         <input
                             type="text"
                             placeholder="Search trips by name or code..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white/70 backdrop-blur-sm focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 focus:bg-white transition-all duration-200 outline-none shadow-sm"
                         />
-                        <svg className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                            >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                     <button
                         onClick={() => navigate('/createTrip')}
-                        className="px-6 py-3 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 whitespace-nowrap"
+                        className="group relative px-6 py-3 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 whitespace-nowrap overflow-hidden"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <svg className="w-5 h-5 relative z-10 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Create New Trip
+                        <span className="relative z-10">Create New Trip</span>
                     </button>
                 </div>
 
                 {/* Trips Grid */}
                 {filteredTrips.length === 0 ? (
-                    <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
-                        <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <h3 className="text-2xl font-bold text-gray-700 mb-2">No trips found</h3>
-                        <p className="text-gray-500 mb-6">
-                            {searchTerm ? 'Try a different search term' : 'Start planning your next adventure by creating a new trip.'}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl p-12 text-center border border-white/50">
+                        <div className="w-24 h-24 bg-gradient-to-br from-[#1E3A8A]/10 to-[#2563EB]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-12 h-12 text-[#1E3A8A]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">No trips found</h3>
+                        <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                            {searchTerm 
+                                ? `No trips match "${searchTerm}". Try a different search term.`
+                                : 'Start planning your next adventure by creating your first trip.'}
                         </p>
                         {!searchTerm && (
                             <button
                                 onClick={() => navigate('/createTrip')}
-                                className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:from-[#2563EB] hover:to-[#1E3A8A] transition-all duration-200 shadow-md"
+                                className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold inline-flex items-center gap-2"
                             >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
                                 Create Your First Trip
                             </button>
                         )}
@@ -180,21 +215,26 @@ export const TripsPage = () => {
                         {filteredTrips.map((trip) => (
                             <div
                                 key={trip.id}
-                                className="group bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                                className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:bg-white"
                             >
-                                {/* Card Header with subtle pattern */}
+                                {/* Subtle gradient background on hover */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+
+                                {/* Card Header with decorative pattern */}
                                 <div className="relative bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] px-5 py-5 overflow-hidden">
-                                    {/* Decorative pattern */}
                                     <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '20px 20px' }}></div>
+                                    <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
                                     <div className="relative z-10">
                                         <h3 className="text-xl font-bold text-white mb-1 truncate pr-8">{trip.name}</h3>
-                                        <p className="text-xs text-blue-100 font-mono">{trip.code}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-blue-100 font-mono bg-white/20 px-2 py-0.5 rounded-full">{trip.code}</span>
+                                        </div>
                                     </div>
-                                    {/* Delete icon (visible on hover) */}
+                                    {/* Delete button - enhanced */}
                                     <button
                                         onClick={() => handleDeleteClick(trip)}
                                         disabled={deletingId === trip.id}
-                                        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 bg-white/20 hover:bg-white/30 rounded-full z-20"
+                                        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 p-2 bg-white/20 hover:bg-white/30 rounded-full z-20 backdrop-blur-sm"
                                     >
                                         {deletingId === trip.id ? (
                                             <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -211,19 +251,25 @@ export const TripsPage = () => {
 
                                 {/* Card Body */}
                                 <div className="p-5 space-y-4">
-                                    {/* Meta info row: interests badge + itinerary status */}
+                                    {/* Interests badge + itinerary status */}
                                     <div className="flex items-center justify-between">
-                                        <span className="px-2.5 py-1 bg-[#06B6D4]/10 text-[#06B6D4] text-xs font-semibold rounded-full">
+                                        <span className="px-2.5 py-1 bg-[#06B6D4]/10 text-[#06B6D4] text-xs font-semibold rounded-full flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                            </svg>
                                             {trip.preferences?.length || 0} interests
                                         </span>
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                            </svg>
+                                        <div className="flex items-center gap-1.5 text-xs">
                                             {trip.itineraries?.length > 0 ? (
-                                                <span className="text-green-600 font-medium">Itinerary ready</span>
+                                                <>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                    <span className="text-green-700 font-medium">Itinerary ready</span>
+                                                </>
                                             ) : (
-                                                <span className="text-gray-500">No itinerary</span>
+                                                <>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                                                    <span className="text-gray-500">No itinerary</span>
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -246,7 +292,7 @@ export const TripsPage = () => {
 
                                     {/* Budget */}
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                                        <svg className="w-4 h-4 text-[#06B6D4] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-4 h-4 text-[#F59E0B] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                         <span>Ks {formatBudget(trip.budget)}</span>
@@ -256,13 +302,14 @@ export const TripsPage = () => {
                                     <div className="pt-2">
                                         <button
                                             onClick={() => navigate(`/tripDetail/${trip.code}`)}
-                                            className="w-full px-4 py-2.5 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-semibold rounded-lg hover:from-[#2563EB] hover:to-[#1E3A8A] transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                                            className="group/btn relative w-full px-4 py-2.5 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-semibold rounded-xl hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 overflow-hidden"
                                         >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                                            <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
-                                            View Details
+                                            <span className="relative z-10">View Details</span>
                                         </button>
                                     </div>
                                 </div>
@@ -271,10 +318,10 @@ export const TripsPage = () => {
                     </div>
                 )}
 
-                {/* Delete Confirmation Modal */}
+                {/* Delete Confirmation Modal - Enhanced */}
                 {showDeleteModal && tripToDelete && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform animate-in zoom-in-95 duration-200">
                             <div className="text-center">
                                 <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                                     <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,24 +329,24 @@ export const TripsPage = () => {
                                     </svg>
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-800 mb-2">Delete Trip</h3>
-                                <p className="text-gray-600 mb-6">
-                                    Are you sure you want to delete "{tripToDelete.name}"? This action cannot be undone.
+                                <p className="text-gray-500 mb-6">
+                                    Are you sure you want to delete <span className="font-semibold text-gray-700">"{tripToDelete.name}"</span>? This action cannot be undone.
                                 </p>
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setShowDeleteModal(false)}
-                                        className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                                        className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={confirmDelete}
                                         disabled={deletingId === tripToDelete.id}
-                                        className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
                                     >
                                         {deletingId === tripToDelete.id ? (
                                             <>
-                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>

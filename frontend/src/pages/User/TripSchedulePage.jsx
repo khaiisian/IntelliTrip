@@ -17,13 +17,11 @@ export const TripSchedulePage = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    // Schedule state
     const [startTime, setStartTime] = useState("08:00");
     const [endTime, setEndTime] = useState("18:00");
     const [dailyHours, setDailyHours] = useState(10);
     const [timeError, setTimeError] = useState("");
 
-    // Fetch trip details using tripCode
     useEffect(() => {
         const fetchTrip = async () => {
             if (!tripCode) {
@@ -53,7 +51,6 @@ export const TripSchedulePage = () => {
         fetchTrip();
     }, [tripCode]);
 
-    // Calculate daily hours whenever start or end time changes
     useEffect(() => {
         if (startTime && endTime) {
             const start = new Date(`2000-01-01T${startTime}:00`);
@@ -88,21 +85,17 @@ export const TripSchedulePage = () => {
         setError("");
 
         try {
-            // Prepare payload for createSchedule API with correct backend model
             const payload = {
                 trip_id: trip.id,
-                day_start_time: startTime,  // Changed from start_time to day_start_time
-                day_end_time: endTime        // Changed from end_time to day_end_time
+                day_start_time: startTime,
+                day_end_time: endTime
             };
 
             console.log("Creating schedule with payload:", payload);
             const res = await createSchedule(payload);
             console.log("Schedule created:", res.data);
 
-            // Navigate to next step (e.g., add attractions to schedule)
-            // navigate(`/trip/${tripCode}/add-attractions`);
             navigate(`/tripPreference/${tripCode}`);
-
         } catch (err) {
             console.error("Error saving schedule:", err);
             setError(err?.response?.data?.message || "Error saving schedule");
@@ -111,12 +104,10 @@ export const TripSchedulePage = () => {
         }
     };
 
-    // Show loading state
     if (loading) {
         return <PageLoader message="Loading trip details..." tripCode={tripCode} />;
     }
 
-    // Show error state
     if (error) {
         return (
             <ErrorMessage
@@ -126,7 +117,7 @@ export const TripSchedulePage = () => {
                     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
                         <button
                             onClick={() => navigate("/trips")}
-                            className="px-6 py-3 bg-[#1E3A8A] text-white rounded-xl hover:bg-[#2563EB] transition-colors"
+                            className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                         >
                             Back to Trips
                         </button>
@@ -136,19 +127,20 @@ export const TripSchedulePage = () => {
         );
     }
 
-    // Show if no trip found
     if (!trip) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-                    <svg className="w-16 h-16 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center border border-gray-100">
+                    <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Trip Not Found</h2>
-                    <p className="text-gray-600 mb-6">No trip found with code: {tripCode}</p>
+                    <p className="text-gray-500 mb-6">No trip found with code: {tripCode}</p>
                     <button
                         onClick={() => navigate("/create-trip")}
-                        className="px-6 py-3 bg-[#1E3A8A] text-white rounded-xl hover:bg-[#2563EB] transition-colors"
+                        className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                     >
                         Create New Trip
                     </button>
@@ -157,7 +149,6 @@ export const TripSchedulePage = () => {
         );
     }
 
-    // Format dates for display
     const formatDate = (dateString) => {
         if (!dateString) return "";
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -168,75 +159,100 @@ export const TripSchedulePage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto">
-                {/* Header Section */}
-                <div className="mb-8 text-center">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">Set Your Daily Schedule</h1>
-                    <p className="text-lg text-gray-600">Define your travel hours for each day of the trip</p>
+                {/* Header with decorative element */}
+                <div className="relative mb-12 text-center">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#1E3A8A]/5 rounded-full blur-3xl -z-10"></div>
+                    <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4 shadow-sm border border-gray-100">
+                        <span className="w-2 h-2 rounded-full bg-[#06B6D4] animate-pulse"></span>
+                        <span className="text-xs font-medium text-gray-600">Step 2 of 3</span>
+                    </div>
+                    <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-[#1E3A8A] via-[#2563EB] to-[#3B82F6] bg-clip-text text-transparent mb-3">
+                        Set Your Daily Schedule
+                    </h1>
+                    <p className="text-gray-500 max-w-md mx-auto">
+                        Define your travel hours for each day of the trip
+                    </p>
                 </div>
 
-                {/* Progress Steps */}
-                <div className="mb-8 flex justify-center">
-                    <div className="flex items-center space-x-4">
-                        <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold shadow-lg">
+                {/* Progress Steps - Enhanced */}
+                <div className="mb-10 flex justify-center">
+                    <div className="flex items-center">
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white flex items-center justify-center font-bold shadow-lg relative">
                                 1
+                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
-                            <span className="ml-3 text-sm font-medium text-gray-500">Trip Details</span>
+                            <span className="mt-2 text-xs font-semibold text-[#1E3A8A]">Trip Details</span>
                         </div>
-                        <div className="w-16 h-0.5 bg-[#1E3A8A]"></div>
-                        <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-[#1E3A8A] text-white flex items-center justify-center font-bold shadow-lg">
+                        <div className="w-20 h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#1E3A8A] mx-2"></div>
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white flex items-center justify-center font-bold shadow-lg relative">
                                 2
+                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
-                            <span className="ml-3 font-semibold text-[#1E3A8A]">Daily Schedule</span>
+                            <span className="mt-2 text-xs font-semibold text-[#1E3A8A]">Daily Schedule</span>
                         </div>
-                        <div className="w-16 h-0.5 bg-gray-300"></div>
-                        <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold">
+                        <div className="w-20 h-0.5 bg-gray-200 mx-2"></div>
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center font-bold border-2 border-gray-200">
                                 3
                             </div>
-                            <span className="ml-3 text-sm font-medium text-gray-500">Select Preferences</span>
+                            <span className="mt-2 text-xs font-medium text-gray-400">Preferences</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Trip Summary Card */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+                {/* Trip Summary Card - Enhanced glass effect */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 mb-8 transition-all hover:shadow-xl">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center">
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] rounded-2xl blur-md opacity-50"></div>
+                                <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center shadow-lg">
+                                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-800">{trip.trip_name}</h2>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded-md">{trip.code}</span>
+                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                    <span className="text-xs text-gray-500">{formatDate(trip.start_date)} - {formatDate(trip.end_date)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-[#06B6D4]/10 rounded-full px-3 py-1.5 text-xs font-medium text-[#06B6D4] self-start sm:self-center">
+                            {Math.ceil((new Date(trip.end_date) - new Date(trip.start_date)) / (1000 * 60 * 60 * 24)) + 1} days
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Form Card with glass effect */}
+                <div className="group relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden transition-all duration-300 hover:shadow-2xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+                    <div className="relative bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] px-8 py-6">
+                        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '20px 20px' }}></div>
+                        <div className="relative z-10 flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-gray-800">{trip.trip_name}</h2>
-                                <p className="text-sm text-gray-500">
-                                    Trip Name: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{trip.name}</span>
-                                </p>
+                                <h2 className="text-2xl font-bold text-white">Daily Schedule Settings</h2>
+                                <p className="text-blue-100 text-sm mt-0.5">Configure your daily travel hours</p>
                             </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                            <p className="text-sm text-gray-600">
-                                {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Form Card */}
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                    <div className="bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] px-8 py-6">
-                        <h2 className="text-2xl font-bold text-white">Daily Schedule Settings</h2>
-                        <p className="text-blue-100 mt-1">Configure your daily travel hours</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
                         {/* Time Selection */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Start Time */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
                                     Day Start Time <span className="text-red-500">*</span>
@@ -247,18 +263,17 @@ export const TripSchedulePage = () => {
                                         value={startTime}
                                         onChange={(e) => setStartTime(e.target.value)}
                                         className={`w-full px-4 py-3 rounded-xl border ${
-                                            timeError ? 'border-red-500' : 'border-gray-300'
-                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+                                            timeError ? 'border-red-500' : 'border-gray-200'
+                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none bg-white/50 focus:bg-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
                                     />
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                        <svg className="w-5 h-5 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5 text-[#06B6D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* End Time */}
                             <div className="space-y-2">
                                 <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
                                     Day End Time <span className="text-red-500">*</span>
@@ -269,11 +284,11 @@ export const TripSchedulePage = () => {
                                         value={endTime}
                                         onChange={(e) => setEndTime(e.target.value)}
                                         className={`w-full px-4 py-3 rounded-xl border ${
-                                            timeError ? 'border-red-500' : 'border-gray-300'
-                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+                                            timeError ? 'border-red-500' : 'border-gray-200'
+                                        } focus:border-[#1E3A8A] focus:ring-2 focus:ring-[#1E3A8A]/20 transition-all duration-200 outline-none bg-white/50 focus:bg-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
                                     />
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                        <svg className="w-5 h-5 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5 text-[#06B6D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
@@ -281,39 +296,38 @@ export const TripSchedulePage = () => {
                             </div>
                         </div>
 
-                        {/* Daily Hours Calculator */}
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-[#06B6D4] flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {/* Daily Hours Calculator - Enhanced */}
+                        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#06B6D4] to-[#0891B2] flex items-center justify-center shadow-md">
+                                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600">Daily available time:</p>
-                                        <p className={`text-3xl font-bold ${dailyHours > 0 ? 'text-[#1E3A8A]' : 'text-red-500'}`}>
-                                            {dailyHours.toFixed(1)} hours
+                                        <p className="text-xs text-gray-500 uppercase tracking-wide">Daily available time</p>
+                                        <p className={`text-4xl font-bold ${dailyHours > 0 ? 'text-[#1E3A8A]' : 'text-red-500'}`}>
+                                            {dailyHours.toFixed(1)} <span className="text-base font-normal text-gray-500">hours</span>
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-gray-500">You will travel</p>
-                                    <p className="text-lg font-semibold text-gray-700">
-                                        {Math.floor(dailyHours)}h {Math.round((dailyHours % 1) * 60)}m per day
+                                    <p className="text-xl font-bold text-gray-800">
+                                        {Math.floor(dailyHours)}h {Math.round((dailyHours % 1) * 60)}m <span className="text-sm font-normal text-gray-500">per day</span>
                                     </p>
                                 </div>
                             </div>
 
                             {/* Progress Bar */}
-                            <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="mt-5 h-2 bg-gray-100 rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-gradient-to-r from-[#06B6D4] to-[#1E3A8A] transition-all duration-300"
+                                    className="h-full bg-gradient-to-r from-[#06B6D4] to-[#1E3A8A] rounded-full transition-all duration-500 ease-out"
                                     style={{ width: `${Math.min((dailyHours / 24) * 100, 100)}%` }}
                                 ></div>
                             </div>
 
-                            {/* Error Message */}
                             <FormErrorMessage message={timeError} />
                         </div>
 
@@ -334,21 +348,25 @@ export const TripSchedulePage = () => {
                             <button
                                 type="button"
                                 onClick={() => navigate(-1)}
-                                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200"
+                                className="group/back flex-1 px-6 py-3 border-2 border-gray-200 text-gray-600 font-semibold rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center gap-2"
                             >
+                                <svg className="w-5 h-5 group-hover/back:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
                                 Back
                             </button>
                             <button
                                 type="submit"
                                 disabled={saving || !!timeError || !trip}
-                                className="flex-1 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3"
+                                className="group/next relative flex-1 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3 overflow-hidden"
                             >
+                                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/next:opacity-100 transition-opacity duration-300"></div>
                                 {saving ? (
                                     <ButtonSpinner text="Saving..." />
                                 ) : (
                                     <>
-                                        Next: Select Preferences
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <span className="relative z-10">Next: Select Preferences</span>
+                                        <svg className="w-5 h-5 relative z-10 group-hover/next:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                         </svg>
                                     </>
@@ -358,19 +376,21 @@ export const TripSchedulePage = () => {
                     </form>
                 </div>
 
-                {/* Preview Card */}
-                <div className="mt-6 bg-white rounded-xl shadow-md border border-gray-100 p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-[#06B6D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        Day 1 Schedule Preview
-                    </h3>
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Daily Schedule:</span>
-                        <span className="font-medium text-gray-800">{startTime} - {endTime}</span>
-                        <span className="text-[#1E3A8A] font-semibold">{dailyHours.toFixed(1)} hrs available</span>
+                {/* Preview Card - Enhanced */}
+                <div className="mt-6 bg-white/70 backdrop-blur-sm rounded-xl shadow-md border border-white/50 p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded-full bg-[#06B6D4]/20 flex items-center justify-center">
+                            <svg className="w-3.5 h-3.5 text-[#06B6D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-sm font-semibold text-gray-700">Day 1 Schedule Preview</h3>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="text-gray-500">Daily Schedule:</span>
+                        <span className="font-mono font-medium text-gray-800 bg-gray-100 px-3 py-1 rounded-lg">{startTime} — {endTime}</span>
+                        <span className="text-[#1E3A8A] font-semibold bg-[#1E3A8A]/5 px-3 py-1 rounded-full">{dailyHours.toFixed(1)} hrs available</span>
                     </div>
                 </div>
             </div>
