@@ -13,3 +13,17 @@ exports.generateItinerary = async (req, res) => {
         return sendResponse(res, err);
     }
 };
+
+exports.saveItinerary = async (req, res) => {
+    try {
+        const { itineraryData } = req.body;
+        const data = await itineraryService.saveItinerary(req.params.code, itineraryData);
+
+        return sendResponse(res, {
+            data,
+            message: "Itinerary saved successfully"
+        });
+    } catch (err) {
+        return sendResponse(res, err);
+    }
+};

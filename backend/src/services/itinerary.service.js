@@ -1,12 +1,13 @@
 // itinerary.service.js
 const { parseTime, formatTime } = require('../utils/time');
+const prisma = require('../prisma');
+const generateCode = require('../utils/generateCode');
 
 const tripRepo = require('../repositories/trip.repository');
 const attractionRepo = require('../repositories/attraction.repository');
 const experienceRepo = require('../repositories/attractionExperience.repository');
 const systemConfigRepo = require('../repositories/systemConfig.repository');
-// const itineraryRepo = require('../repositories/itinerary.repository'); // Uncomment when ready
-// const itineraryItemRepo = require('../repositories/itineraryItem.repository'); // Uncomment when ready
+const itineraryRepo = require('../repositories/itinerary.repository');
 
 const scoringService = require('../services/scoring.service');
 const routingService = require('../services/routing.service');
@@ -543,5 +544,112 @@ exports.generateItinerary = async (tripCode) => {
         console.log('Fallback used:', fallbackCount);
         console.log('Skipped due to limit:', skippedByLimit);
         console.log('====================');
+    }
+};
+
+exports.saveItinerary = async (tripCode, itineraryData) => {
+    console.log(`Saving itinerary for trip: ${tripCode}`);
+
+    try {
+        // 1. Get trip
+        const trip = await tripRepo.findByCode(tripCode);
+        if (!trip) {
+            throw { statusCode: 404, message: "Trip not found" };
+        }
+
+        // 2. Calculate totals
+        const totals = calculateTotals(itineraryData.itinerary);
+
+        // Use a transaction to ensure atomicity and avoid race conditions in code generation
+        const result = await prisma.$transaction(async (tx) => {
+            // 3. Create itinerary record
+            const itinerary = await tx.tbl_itinerary.create({
+                data: {
+                    itinerary_code: await generateCode('tbl_itinerary', 'itinerary_code', 'ITINERARY'),
+                    trip_id: trip.trip_id,
+                    total_distance: totals.totalDistance,
+                    total_cost: totals.totalCost,
+                    total_travel_time: totals.totalTravelTime,
+                    total_visit_time: totals.totalVisitTime
+                }
+            });
+
+            // 4. Generate unique codes for all items first (timestamp-based to ensure uniqueness)
+            const timestamp = Date.now();
+            const itemCodes = [];
+            for (let i = 0; i < itineraryData.itinerary.length; i++) {
+                itemCodes.push(`ITEM-${timestamp}-${String(i + 1).padStart(3, '0')}`);
+            }
+
+            // 5. Create itinerary items
+            const itemPromises = itineraryData.itinerary.map(async (item, index) => {
+                // Convert times to DateTime objects for MySQL Time fields (Prisma expects DateTime for @db.Time(0))
+                let startTime, endTime;
+
+                if (typeof item.visit_start_time === 'string') {
+                    if (item.visit_start_time.match(/^\d{1,2}:\d{2}$/)) {
+                        // HH:MM format, add :00 for seconds
+                        startTime = new Date(`1970-01-01T${item.visit_start_time}:00.000Z`);
+                    } else if (item.visit_start_time.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+                        // HH:MM:SS format
+                        startTime = new Date(`1970-01-01T${item.visit_start_time}.000Z`);
+                    } else {
+                        throw new Error(`Invalid time format for start time: ${item.visit_start_time}`);
+                    }
+                } else if (item.visit_start_time instanceof Date) {
+                    // Use the Date object directly (it should have the correct time)
+                    startTime = item.visit_start_time;
+                } else {
+                    throw new Error(`Invalid type for visit_start_time: ${typeof item.visit_start_time}`);
+                }
+
+                if (typeof item.visit_end_time === 'string') {
+                    if (item.visit_end_time.match(/^\d{1,2}:\d{2}$/)) {
+                        endTime = new Date(`1970-01-01T${item.visit_end_time}:00.000Z`);
+                    } else if (item.visit_end_time.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+                        endTime = new Date(`1970-01-01T${item.visit_end_time}.000Z`);
+                    } else {
+                        throw new Error(`Invalid time format for end time: ${item.visit_end_time}`);
+                    }
+                } else if (item.visit_end_time instanceof Date) {
+                    endTime = item.visit_end_time;
+                } else {
+                    throw new Error(`Invalid type for visit_end_time: ${typeof item.visit_end_time}`);
+                }
+
+                return tx.tbl_itinerary_item.create({
+                    data: {
+                        item_code: itemCodes[index],
+                        itinerary_id: itinerary.itinerary_id,
+                        day_number: item.day_number,
+                        visit_start_time: startTime,
+                        visit_end_time: endTime,
+                        attraction_id: item.attraction_id,
+                        distance_from_previous: item.distance_from_previous,
+                        final_score: item.final_score
+                    }
+                });
+            });
+
+            const items = await Promise.all(itemPromises);
+
+            return {
+                itinerary: {
+                    ...itinerary,
+                    tbl_itinerary_item: items
+                }
+            };
+        });
+
+        console.log(`Saved itinerary ${result.itinerary.itinerary_code} with ${itineraryData.itinerary.length} items`);
+
+        return {
+            success: true,
+            itinerary: result.itinerary
+        };
+    } catch (error) {
+        console.error('Error saving itinerary:', error);
+        if (error.statusCode) throw error;
+        throw { statusCode: 500, message: error.message || 'Failed to save itinerary' };
     }
 };
