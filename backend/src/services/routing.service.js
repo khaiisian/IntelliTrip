@@ -6,6 +6,7 @@ const { addMinutes, parseTime, formatTime } = require('../utils/time');
 const { SCORING_CONFIG } = require('./scoring.config');
 
 const distanceCache = new Map();
+const travelCache = new Map();
 
 function getDistance(a, b) {
     const key = `${a.lat},${a.lng}-${b.lat},${b.lng}`;
@@ -16,22 +17,46 @@ function getDistance(a, b) {
     return dist;
 }
 
-async function isFeasible(currentLocation, currentTime, attraction, dayEnd, systemConfig, remainingBudget, endLocation, matrix) {
+async function getTravelTimeSmart(from, to) {
+    const key = `${from.lat.toFixed(4)},${from.lng.toFixed(4)}-${to.lat.toFixed(4)},${to.lng.toFixed(4)}`;
+
+    if (travelCache.has(key)) {
+        return travelCache.get(key);
+    }
+
+    const dist = calculateDistance(from.lat, from.lng, to.lat, to.lng);
+
+    let time;
+
+    // 1. VERY CLOSE → no ORS
+    if (dist < 3) {
+        time = Math.max(1, Math.ceil(dist * 2));
+    }
+    // 2. MEDIUM → no ORS
+    else if (dist < 10) {
+        time = Math.max(2, Math.ceil(dist * 2.5));
+    }
+    // 3. FAR → ORS ONLY HERE
+    else {
+        time = await orsService.getTravelTime(from, to);
+    }
+
+    travelCache.set(key, time);
+    console.log(`Smart travel used: ${key} = ${time} min`);
+    return time;
+}
+
+async function isFeasible(currentLocation, currentTime, attraction, dayEnd, systemConfig, remainingBudget, endLocation) {
 
     // HARD CONSTRAINT: Budget must be respected
     if (Number(attraction.cost) > remainingBudget) {
         return null;
     }
 
-    const fromId = currentLocation.id || 'start';
-    const toId = attraction.attraction_id;
-    const endId = 'end';
+    const fromLocation = currentLocation;
+    const toLocation = { lat: attraction.latitude, lng: attraction.longitude };
 
-    let travelMinutes = matrix[`${fromId}-${toId}`];
-    if (!travelMinutes) {
-        const dist = getDistance(currentLocation, { lat: attraction.latitude, lng: attraction.longitude });
-        travelMinutes = Math.ceil(dist / 30 * 60);
-    }
+    const travelMinutes = await getTravelTimeSmart(fromLocation, toLocation);
 
     const arrivalTime = addMinutes(currentTime, travelMinutes);
 
@@ -60,11 +85,7 @@ async function isFeasible(currentLocation, currentTime, attraction, dayEnd, syst
         lng: systemConfig.end_lng ?? systemConfig.start_lng
     };
 
-    let returnMinutes = matrix[`${toId}-end`];
-    if (!returnMinutes) {
-        const dist = getDistance({ lat: attraction.latitude, lng: attraction.longitude }, endLocation);
-        returnMinutes = Math.ceil(dist / 30 * 60);
-    }
+    const returnMinutes = await getTravelTimeSmart(toLocation, endpoint);
 
     const finishVisitTime = arrivalTime.getTime() + (wait * 60000) + (attraction.duration_minutes * 60000);
     const finishDate = new Date(finishVisitTime);
@@ -72,9 +93,11 @@ async function isFeasible(currentLocation, currentTime, attraction, dayEnd, syst
 
     if (finishMin + returnMinutes > dayEndMin) return null;
 
+    const distance = getDistance(fromLocation, toLocation);
+
     return {
         attraction,
-        distance: 0, // optional now
+        distance,
         travelMinutes,
         waitMinutes: wait,
         arrivalTime
@@ -84,7 +107,7 @@ async function isFeasible(currentLocation, currentTime, attraction, dayEnd, syst
 /**
  * PURE selection only (no scoring here)
  */
-exports.buildCandidates = async (remaining, currentState, systemConfig, budget, matrix) => {
+exports.buildCandidates = async (remaining, currentState, systemConfig, budget) => {
 
     const candidates = [];
 
@@ -102,8 +125,7 @@ exports.buildCandidates = async (remaining, currentState, systemConfig, budget, 
             currentState.dayEnd,
             systemConfig,
             budget,
-            endLocation,
-            matrix
+            endLocation
         );
 
         if (result) candidates.push(result);

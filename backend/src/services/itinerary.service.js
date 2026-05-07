@@ -1,6 +1,5 @@
 // itinerary.service.js
 const { parseTime, formatTime } = require('../utils/time');
-const { calculateDistance } = require('../utils/distance');
 
 const tripRepo = require('../repositories/trip.repository');
 const attractionRepo = require('../repositories/attraction.repository');
@@ -12,7 +11,6 @@ const systemConfigRepo = require('../repositories/systemConfig.repository');
 const scoringService = require('../services/scoring.service');
 const routingService = require('../services/routing.service');
 const orsService = require('../services/ors.service');
-const { buildTravelMatrix } = require('../services/matrix.service');
 
 function isWithinBestTime(attraction, visitStartTime) {
     if (!attraction.experiences || attraction.experiences.length === 0) return false;
@@ -29,33 +27,39 @@ function isWithinBestTime(attraction, visitStartTime) {
     return false;
 }
 
-function estimateFutureScore(remaining, chosenId, remainingDays) {
-    const nextOptions = remaining.filter(a => a.attraction_id !== chosenId);
+function advanceToNextDay(state, dayDate, dayStartTime, tripDays) {
+    const nextDay = state.currentDay + 1;
 
-    if (nextOptions.length === 0) return 0;
+    if (nextDay > tripDays) return null;
 
-    // Take top K best future options, scaled by remaining days
-    const sorted = nextOptions
-        .sort((a, b) => b.base_score - a.base_score)
-        .slice(0, remainingDays * 2);
+    const nextDayStart = new Date(dayDate);
+    nextDayStart.setUTCDate(dayDate.getUTCDate() + 1);
+    nextDayStart.setUTCHours(
+        dayStartTime.getUTCHours(),
+        dayStartTime.getUTCMinutes(),
+        0, 0
+    );
 
-    const avg = sorted.reduce((sum, a) => sum + a.base_score, 0) / sorted.length;
-
-    return avg * remainingDays;
+    return {
+        ...state,
+        currentDay: nextDay,
+        currentTime: nextDayStart,
+        hasLunchBreak: false,
+        todaySpent: 0,
+        visitsToday: 0
+    };
 }
 
 /**
  * Generate route using beam search for better optimization
  */
-async function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost, endLocation, matrix) {
+async function generateRoute(startLocation, attractions, startTime, dayStartTime, dayEndTime, tripDays, tripBudget, systemConfig, scoring, maxCost, endLocation) {
 
     if (!attractions?.length) return [];
 
-    const BEAM_WIDTH = 5;
-    const MIN_HIGH_QUALITY_SCORE = 0.5;
-    const MIN_ACCEPTABLE_SCORE = 0.3;
+    const BEAM_WIDTH = 6;
 
-    // State: { route: [], currentLocation, currentTime, currentDay, remainingBudget, remainingAttractions: [], totalScore }
+    // State: { route: [], currentLocation, currentTime, currentDay, remainingBudget, remainingAttractions: [], totalScore, todaySpent, visitsToday }
     const initialState = {
         route: [],
         currentLocation: { id: 'start', lat: Number(startLocation.lat), lng: Number(startLocation.lng) },
@@ -64,7 +68,9 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
         remainingBudget: Number(tripBudget) || 0,
         remainingAttractions: [...attractions],
         totalScore: 0,
-        hasLunchBreak: false
+        hasLunchBreak: false,
+        todaySpent: 0,
+        visitsToday: 0
     };
 
     let beam = [initialState];
@@ -107,7 +113,7 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
             };
 
             // Build feasible candidates
-            const candidates = await routingService.buildCandidates(state.remainingAttractions, currentState, systemConfig, state.remainingBudget, matrix);
+            const candidates = await routingService.buildCandidates(state.remainingAttractions, currentState, systemConfig, state.remainingBudget);
 
             // ===============================
             // 🔥 NEW: Optional END_DAY action
@@ -118,11 +124,9 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
             // - already visited at least two attractions today
             // - AND it is late enough or daily budget is nearly exhausted
             const currentHour = currentTime.getUTCHours();
-            const todaySpent = state.route
-                .filter(r => r.day_number === state.currentDay)
-                .reduce((sum, r) => sum + Number(r.cost || 0), 0);
+            const todaySpent = state.todaySpent;
             const idealDailyBudget = tripBudget / tripDays;
-            const visitsToday = state.route.filter(r => r.day_number === state.currentDay).length;
+            const visitsToday = state.visitsToday;
 
             const allowEarlyEnd =
                 visitsToday >= 2 &&
@@ -142,22 +146,14 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
                     0, 0
                 );
 
-                const remainingDays = tripDays - state.currentDay + 1;
-                const endDayPenalty = 0.1 * (1 / remainingDays);
-
                 const endDayState = {
                     ...state,
                     currentDay: nextDay,
                     currentTime: nextDayStart,
-                    hasLunchBreak: false,
-                    totalScore: state.totalScore - endDayPenalty
+                    hasLunchBreak: false
                 };
 
                 newBeam.push(endDayState);
-                newBeam.push({
-                    ...endDayState,
-                    totalScore: endDayState.totalScore - 0.02
-                });
             }
 
             if (candidates.length === 0) {
@@ -191,9 +187,7 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
 
                 const idealDailyBudget = tripBudget / tripDays;
 
-                const todaySpent = state.route
-                    .filter(r => r.day_number === state.currentDay)
-                    .reduce((sum, r) => sum + Number(r.cost || 0), 0);
+                const todaySpent = state.todaySpent;
 
                 const score = scoring.computeScore({
                     basePreference: c.attraction.base_score,
@@ -214,38 +208,12 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
                     idealDailyBudget
                 });
 
-                const futurePotential = estimateFutureScore(
-                    state.remainingAttractions,
-                    c.attraction.attraction_id,
-                    tripDays - state.currentDay + 1
-                );
-
-                c.score = score + 0.2 * futurePotential;
-                c.futurePotential = futurePotential;
+                c.score = score;
                 c.experienceScore = experienceScore;
             }
 
-            // Define score tiers (adjustable)
-            const HIGH_QUALITY = MIN_HIGH_QUALITY_SCORE;
-            const ACCEPTABLE = MIN_ACCEPTABLE_SCORE;
-
             candidates.sort((a, b) => b.score - a.score);
-
-            // 1. First try: high quality
-            let topCandidates = candidates.filter(c => c.score >= HIGH_QUALITY);
-
-            // 2. Second try: acceptable (but not great)
-            if (topCandidates.length === 0) {
-                topCandidates = candidates.filter(c => c.score >= ACCEPTABLE);
-            }
-
-            // 3. Last resort: take the single best candidate (avoids empty itinerary)
-            if (topCandidates.length === 0 && candidates.length > 0) {
-                topCandidates = [candidates[0]];
-            }
-
-            // Limit to beam width (e.g., 5)
-            topCandidates = topCandidates.slice(0, 5);
+            const topCandidates = candidates.slice(0, BEAM_WIDTH);
 
             // Create new states for each candidate
             for (const candidate of topCandidates) {
@@ -293,7 +261,6 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
                     visit_end_time: visitEnd,
                     final_score: candidate.score,
                     experienceScore: candidate.experienceScore,
-                    lookahead_score: candidate.futurePotential,
                     cost: chosen.cost,
                     total_score: state.totalScore + candidate.score
                 };
@@ -306,7 +273,9 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
                     remainingBudget: state.remainingBudget - Number(chosen.cost),
                     remainingAttractions: state.remainingAttractions.filter(a => a.attraction_id !== chosen.attraction_id),
                     totalScore: state.totalScore + candidate.score,
-                    hasLunchBreak: newHasLunchBreak
+                    hasLunchBreak: newHasLunchBreak,
+                    todaySpent: newDay === state.currentDay ? state.todaySpent + Number(chosen.cost) : Number(chosen.cost),
+                    visitsToday: newDay === state.currentDay ? state.visitsToday + 1 : 1
                 };
 
                 // Log when a candidate is selected
@@ -316,30 +285,10 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
             }
         }
 
-        function computeBalancedScore(state) {
-            const dayCounts = {};
-
-            for (const item of state.route) {
-                dayCounts[item.day_number] = (dayCounts[item.day_number] || 0) + 1;
-            }
-
-            const usedDays = Object.keys(dayCounts).length;
-            const dayUsageBonus = usedDays * 0.2;
-
-            const expectedDays = Math.min(tripDays, state.route.length / 3 + 1);
-            const underusePenalty = Math.max(0, expectedDays - usedDays) * 0.3;
-
-            const counts = Object.values(dayCounts);
-            const avg = counts.reduce((a, b) => a + b, 0) / (counts.length || 1);
-            const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0);
-            const balancePenalty = variance * 0.05;
-
-            return state.totalScore + dayUsageBonus - balancePenalty - underusePenalty;
-        }
-
-        // Select top BEAM_WIDTH states by balanced score
-        newBeam.sort((a, b) => computeBalancedScore(b) - computeBalancedScore(a));
-        beam = newBeam.slice(0, BEAM_WIDTH);
+        // Select top BEAM_WIDTH states by totalScore
+        beam = newBeam
+            .sort((a, b) => b.totalScore - a.totalScore)
+            .slice(0, BEAM_WIDTH);
 
         // If all states are complete or no progress, break
         const allComplete = beam.every(s => s.remainingAttractions.length === 0 || s.currentDay > tripDays);
@@ -348,9 +297,65 @@ async function generateRoute(startLocation, attractions, startTime, dayStartTime
 
     // Return the best route
     if (beam.length === 0) return [];
-    const bestState = beam.reduce((a, b) => a.totalScore > b.totalScore ? a : b);
+
+    // Sort beam by totalScore descending
+    beam.sort((a, b) => b.totalScore - a.totalScore);
+
+    // Find the first valid route
+    let bestState = null;
+    for (const state of beam) {
+        if (validateRoute(state.route, tripBudget, tripDays)) {
+            bestState = state;
+            break;
+        }
+    }
+
+    if (!bestState) {
+        console.warn('No valid route found, returning best invalid route');
+        bestState = beam[0];
+    }
+
     console.log(`Beam search completed after ${iteration} iterations. Best state has ${bestState.route.length} attractions, total score ${bestState.totalScore.toFixed(2)}, last day ${bestState.currentDay}`);
     return bestState.route;
+}
+
+/**
+ * Validate the final route for correctness
+ */
+function validateRoute(route, tripBudget, tripDays) {
+    if (!route || route.length === 0) return false;
+
+    let totalCost = 0;
+    const daysUsed = new Set();
+
+    for (const item of route) {
+        totalCost += Number(item.cost || 0);
+        daysUsed.add(item.day_number);
+
+        // Basic time validation - visit_end should be after visit_start
+        if (item.visit_end_time && item.visit_start_time) {
+            const start = new Date(item.visit_start_time);
+            const end = new Date(item.visit_end_time);
+            if (end <= start) {
+                console.warn(`Invalid time for ${item.attraction_name}: end <= start`);
+                return false;
+            }
+        }
+    }
+
+    // Check budget
+    if (totalCost > tripBudget * 1.1) { // Allow 10% buffer
+        console.warn(`Budget exceeded: ${totalCost} > ${tripBudget}`);
+        return false;
+    }
+
+    // Check days
+    if (daysUsed.size > tripDays) {
+        console.warn(`Too many days used: ${daysUsed.size} > ${tripDays}`);
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -432,13 +437,6 @@ exports.generateItinerary = async (tripCode) => {
             throw { statusCode: 400, message: "No attractions fit within budget" };
         }
 
-        // 5.5. Build travel time matrix upfront
-        const matrix = await buildTravelMatrix(
-            { lat: trip.start_lat, lng: trip.start_lng },
-            selectedAttractions,
-            { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng }
-        );
-
         // 5. Determine start time (first day start)
         const startDateTime = new Date(trip.start_date);
         const dayStartTime = parseTime(schedule.day_start_time);
@@ -465,8 +463,7 @@ exports.generateItinerary = async (tripCode) => {
             systemConfig,
             scoringService,
             maxCost,
-            { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng },
-            matrix // ✅ NEW
+            { lat: trip.end_lat ?? trip.start_lat, lng: trip.end_lng ?? trip.start_lng }
         );
 
         console.log(route)
