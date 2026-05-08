@@ -686,3 +686,318 @@ exports.generateItinerary = async (tripCode) => {
         console.log('====================');
     }
 };
+
+/**
+ * Recalculate and validate itinerary based on user actions (e.g., move, delete, edit time).
+ * Does not save changes; returns a preview for feasibility check.
+ * Locked items are immutable anchors: their day_number, position, visit_start_time, and visit_end_time never change.
+ * @param {string} tripCode - Trip code to fetch details.
+ * @param {Array} currentItinerary - Current scheduled items.
+ * @param {Object} action - Action details (e.g., { type: 'move', itemCode: 'ITEM-0001', newDay: 2, newPosition: 1 }).
+ * @param {Array} lockedItems - Array of locked item codes.
+ * @returns {Object} - { isValid, errors, recalculatedItinerary, freeTimeGaps, suggestions, totals }
+ */
+function applyAction(itinerary, action, lockedItems, tripDays) {
+    let updated = JSON.parse(JSON.stringify(itinerary));
+
+    if (action.type === 'move' || action.type === 'reorder') {
+        if (lockedItems.includes(action.itemCode)) {
+            throw { statusCode: 400, message: 'Cannot move locked item' };
+        }
+        const dayMap = updated.reduce((acc, i) => {
+            acc[i.day_number] = acc[i.day_number] || [];
+            acc[i.day_number].push(i);
+            return acc;
+        }, {});
+        const targetItem = updated.find(i => i.item_code === action.itemCode);
+        if (!targetItem) {
+            throw {
+                statusCode: 400,
+                message: `Item not found for code: ${action.itemCode}`
+            };
+        }
+
+        const oldDay = targetItem.day_number;
+        const oldIndex = dayMap[oldDay]?.findIndex(i => i.item_code === action.itemCode);
+        if (oldIndex === -1 || oldIndex === undefined) {
+            throw {
+                statusCode: 400,
+                message: `Item index not found for code: ${action.itemCode}`
+            };
+        }
+
+        const [item] = dayMap[oldDay].splice(oldIndex, 1);
+        if (!item) {
+            throw {
+                statusCode: 400,
+                message: `Failed to move item: ${action.itemCode}`
+            };
+        }
+
+        item.day_number = action.newDay || item.day_number;
+        dayMap[item.day_number] = dayMap[item.day_number] || [];
+        const insertPos = action.newPosition !== undefined ? action.newPosition : dayMap[item.day_number].length;
+        dayMap[item.day_number].splice(insertPos, 0, item);
+        updated = [];
+        for (let d = 1; d <= tripDays; d++) {
+            if (dayMap[d]) updated.push(...dayMap[d]);
+        }
+    } else if (action.type === 'delete') {
+        if (lockedItems.includes(action.itemCode)) {
+            throw { statusCode: 400, message: 'Cannot delete locked item' };
+        }
+        updated = updated.filter(i => i.item_code !== action.itemCode);
+    } else if (action.type === 'editTime') {
+        if (lockedItems.includes(action.itemCode)) {
+            throw { statusCode: 400, message: 'Cannot edit time for locked item' };
+        }
+        const item = updated.find(i => i.item_code === action.itemCode);
+        if (!item) throw { statusCode: 400, message: 'Item not found' };
+        item.visit_start_time = new Date(action.newStartTime);
+        item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
+    }
+
+    return updated;
+}
+
+async function buildTimeline(itinerary, tripConfig, lockedItems) {
+    const { trip, schedule, experiences, systemConfig, tripDays, maxCost } = tripConfig;
+    let updated = JSON.parse(JSON.stringify(itinerary));
+
+    const dayStartTime = parseTime(schedule.day_start_time);
+    const dayEndTime = parseTime(schedule.day_end_time);
+
+    for (let day = 1; day <= tripDays; day++) {
+        const dayItems = updated.filter(i => Number(i.day_number) === Number(day)).sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        if (dayItems.length === 0) continue;
+
+        let currentTime = new Date(dayStartTime);
+        let prevLatLng = null;
+        for (let i = 0; i < dayItems.length; i++) {
+            const item = dayItems[i];
+            if (lockedItems.includes(item.item_code)) {
+                // Locked: keep original times, update currentTime to its end
+                currentTime = new Date(item.visit_end_time);
+                prevLatLng = {
+                    lat: Number(item.latitude),
+                    lng: Number(item.longitude)
+                };
+                continue;
+            }
+            // Unlocked: recompute
+            if (i === 0 || !prevLatLng) {
+                item.visit_start_time = new Date(currentTime);
+            } else {
+                const travel = await orsService.getTravelTime(
+                    prevLatLng,
+                    {
+                        lat: Number(item.latitude),
+                        lng: Number(item.longitude)
+                    }
+                );
+                item.travel_minutes = travel;
+                item.distance_from_previous = require('../utils/distance').calculateDistance(
+                    prevLatLng.lat,
+                    prevLatLng.lng,
+                    Number(item.latitude),
+                    Number(item.longitude)
+                );
+                item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
+            }
+            item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
+            currentTime = new Date(item.visit_end_time);
+            prevLatLng = {
+                lat: Number(item.latitude),
+                lng: Number(item.longitude)
+            };
+            // Recalc score
+            const expScore = scoringService.computeExperienceScore(experiences.filter(e => e.attraction_id === item.attraction_id), item.visit_start_time);
+            item.final_score = scoringService.computeScore({
+                basePreference: item.base_score || 0,
+                experienceScore: expScore,
+                travelMinutes: item.travel_minutes,
+                waitMinutes: 0,
+                cost: item.cost,
+                distance: item.distance_from_previous,
+                toEndDistance: 0, // Simplified
+                toEndDistanceNormalized: 0,
+                maxCost,
+                currentDay: day,
+                totalDays: tripDays,
+                currentTime: item.visit_start_time,
+                remainingBudget: trip.budget - updated.reduce((sum, it) => sum + Number(it.cost || 0), 0),
+                todaySpent: 0, // Simplified
+                idealDailyBudget: trip.budget / tripDays
+            });
+        }
+        // Check day end
+        if (currentTime > dayEndTime) {
+            throw { statusCode: 400, message: `Day ${day} exceeds end time` };
+        }
+    }
+
+    // Ensure all times are returned as 'HH:mm' strings
+    updated = updated.map(item => ({
+        ...item,
+        visit_start_time: formatTime(item.visit_start_time),
+        visit_end_time: formatTime(item.visit_end_time)
+    }));
+    return updated;
+}
+
+function detectFreeTime(itinerary, dayStart, dayEnd, tripDays) {
+    const freeTimeGaps = [];
+    for (let day = 1; day <= tripDays; day++) {
+        const dayItems = itinerary.filter(i => i.day_number === day).sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        if (dayItems.length === 0) continue;
+
+        // Gap before first item
+        const firstStart = new Date(dayItems[0].visit_start_time);
+        const gapBefore = (firstStart - dayStart) / 60000;
+        if (gapBefore > 30) {
+            freeTimeGaps.push({
+                day,
+                start: formatTime(dayStart),
+                end: formatTime(firstStart),
+                minutes: gapBefore
+            });
+        }
+
+        // Gaps between items
+        for (let i = 0; i < dayItems.length - 1; i++) {
+            const gap = (new Date(dayItems[i + 1].visit_start_time) - new Date(dayItems[i].visit_end_time)) / 60000;
+            if (gap > 30) {
+                freeTimeGaps.push({
+                    day,
+                    start: formatTime(dayItems[i].visit_end_time),
+                    end: formatTime(dayItems[i + 1].visit_start_time),
+                    minutes: gap
+                });
+            }
+        }
+
+        // Gap after last item
+        const lastEnd = new Date(dayItems[dayItems.length - 1].visit_end_time);
+        const gapAfter = (dayEnd - lastEnd) / 60000;
+        if (gapAfter > 30) {
+            freeTimeGaps.push({
+                day,
+                start: formatTime(lastEnd),
+                end: formatTime(dayEnd),
+                minutes: gapAfter
+            });
+        }
+    }
+    return freeTimeGaps;
+}
+
+function generateSuggestions(freeTimeGaps, attractions, usedIds, budgetRemaining) {
+    const suggestions = [];
+    const remainingAttractions = attractions.filter(a => !usedIds.includes(a.attraction_id));
+    for (const gap of freeTimeGaps) {
+        if (gap.minutes > 30) { // Use 30 min threshold
+            const feasible = remainingAttractions.filter(a => a.duration_minutes <= gap.minutes && a.cost <= budgetRemaining);
+            const topAttr = feasible.sort((a, b) => b.base_score - a.base_score)[0];
+            if (topAttr) {
+                const placementTime = new Date(gap.start).getTime() + (gap.minutes / 2) * 60000; // Mid-gap
+                suggestions.push({
+                    gapIndex: freeTimeGaps.indexOf(gap),
+                    suggestedAttraction: {
+                        attraction_id: topAttr.attraction_id,
+                        name: topAttr.attraction_name,
+                        placementTime: formatTime(new Date(placementTime)),
+                        duration: topAttr.duration_minutes,
+                        cost: topAttr.cost
+                    }
+                });
+            }
+        }
+    }
+    return suggestions;
+}
+
+function validateItinerary(itinerary, trip, tripDays) {
+    const errors = [];
+    const totalCost = itinerary.reduce((sum, i) => sum + Number(i.cost || 0), 0);
+    if (totalCost > trip.budget) errors.push('Budget exceeded');
+    const maxDay = itinerary.length
+        ? Math.max(...itinerary.map(i => i.day_number || 1))
+        : 1;
+    if (maxDay > tripDays) errors.push('Exceeds trip days');
+    // Overlaps (simplified)
+    for (const dayItems of Object.values(itinerary.reduce((acc, i) => { acc[i.day_number] = acc[i.day_number] || []; acc[i.day_number].push(i); return acc; }, {}))) {
+        const sorted = dayItems.sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        for (let i = 1; i < sorted.length; i++) {
+            if (new Date(sorted[i].visit_start_time) < new Date(sorted[i - 1].visit_end_time)) {
+                errors.push(`Time overlap on day ${sorted[i].day_number}`);
+            }
+        }
+    }
+    return { isValid: errors.length === 0, errors };
+}
+
+exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, action, lockedItems = []) => {
+    try {
+        // Fetch trip, schedule, etc.
+        const trip = await tripRepo.findByCode(tripCode);
+        const schedule = await tripRepo.getTripSchedule(trip?.trip_id);
+        const attractions = await attractionRepo.findAll();
+        const experiences = await experienceRepo.getAllExperiences();
+        const systemConfig = await systemConfigRepo.getSystemConfig();
+
+        // Log critical inputs
+        console.log("trip:", trip);
+        console.log("schedule:", schedule);
+        console.log("currentItinerary:", currentItinerary);
+        console.log("action:", action);
+
+        if (!trip) {
+            throw {
+                statusCode: 404,
+                message: `Trip not found: ${tripCode}`
+            };
+        }
+        if (!schedule) {
+            throw {
+                statusCode: 404,
+                message: 'Trip schedule not found'
+            };
+        }
+
+        const tripDays = scoringService.calculateTripDays(trip.start_date, trip.end_date);
+        const dayStartTime = parseTime(schedule.day_start_time);
+        const dayEndTime = parseTime(schedule.day_end_time);
+        console.log("dayStartTime:", dayStartTime);
+        console.log("dayEndTime:", dayEndTime);
+        const maxCost = attractions.length
+            ? Math.max(...attractions.map(a => a.cost || 0))
+            : 0;
+
+        const tripConfig = { trip, schedule, experiences, systemConfig, tripDays, maxCost };
+
+        let updated = applyAction(currentItinerary, action, lockedItems, tripDays);
+
+        updated = await buildTimeline(updated, tripConfig, lockedItems);
+
+        const freeTime = detectFreeTime(updated, dayStartTime, dayEndTime, tripDays);
+
+        const usedIds = updated.map(i => i.attraction_id);
+        const totalCost = updated.reduce((sum, i) => sum + Number(i.cost || 0), 0);
+        const budgetRemaining = trip.budget - totalCost;
+        const suggestions = generateSuggestions(freeTime, attractions, usedIds, budgetRemaining);
+
+        const validation = validateItinerary(updated, trip, tripDays);
+
+        return {
+            isValid: validation.isValid,
+            errors: validation.errors,
+            recalculatedItinerary: updated,
+            freeTimeGaps: freeTime,
+            suggestions,
+            totals: calculateTotals(updated)
+        };
+    } catch (error) {
+        console.error("RECALCULATE ERROR:", error);
+        throw { statusCode: error.statusCode || 500, message: error.message || 'Recalculation failed' };
+    }
+};

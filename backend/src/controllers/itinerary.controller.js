@@ -40,6 +40,30 @@ exports.getItinerariesByUserCode = async (req, res) => {
     }
 };
 
+exports.recalculateItinerary = async (req, res) => {
+    try {
+        console.log("[recalculateItinerary] req.body:", req.body);
+        const { currentItinerary, action, lockedItems } = req.body;
+        const data = await itineraryService.recalculateAndValidateItinerary(
+            req.params.code,
+            currentItinerary,
+            action,
+            lockedItems || []
+        );
+
+        return sendResponse(res, {
+            data,
+            message: 'Itinerary preview recalculated successfully'
+        });
+    } catch (err) {
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? 'Failed to recalculate itinerary'
+        });
+    }
+};
+
 exports.saveItinerary = async (req, res) => {
     try {
         const data = await itineraryService.saveItinerary(req.params.code, req.body);
