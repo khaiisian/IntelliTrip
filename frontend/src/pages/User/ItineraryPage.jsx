@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { generateItinerary, saveItinerary, getSavedItinerary } from '../../api/itinerary.api';
+import { generateItinerary, saveItinerary, getSavedItinerary, recalculateItinerary } from '../../api/itinerary.api';
 import { getRouteGeometry } from '../../api/route.api';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const createNumberedIcon = (number) => {
     return L.divIcon({
@@ -175,27 +174,75 @@ export const TripItineraryPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [itineraryData, setItineraryData] = useState(null);
+    const [workingItinerary, setWorkingItinerary] = useState([]);
     const [selectedDay, setSelectedDay] = useState('1');
     const [routeGeometry, setRouteGeometry] = useState([]);
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveSuccess, setSaveSuccess] = useState('');
     const [exportingPDF, setExportingPDF] = useState(false);
+    const [isPreviewValid, setIsPreviewValid] = useState(true);
+    const [previewErrors, setPreviewErrors] = useState([]);
+    const [freeTimeGaps, setFreeTimeGaps] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
+    const [recalcLoadingItem, setRecalcLoadingItem] = useState(null);
+    const [recalcError, setRecalcError] = useState('');
+    const [lockedItems, setLockedItems] = useState([]);
+    const [changeDayFor, setChangeDayFor] = useState(null);
+    const [changeDayValues, setChangeDayValues] = useState({ newDay: '1', newPosition: '0' });
+
+    const workingByDay = useMemo(() => {
+        const grouped = {};
+        workingItinerary.forEach((item) => {
+            const day = String(item.day_number ?? 1);
+            grouped[day] = grouped[day] || [];
+            grouped[day].push(item);
+        });
+        Object.values(grouped).forEach((items) => {
+            items.sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        });
+        return grouped;
+    }, [workingItinerary]);
+
+    useEffect(() => {
+        const days = Object.keys(workingByDay);
+        if (days.length && !days.includes(selectedDay)) {
+            setSelectedDay(days[0]);
+        }
+    }, [workingByDay, selectedDay]);
 
     // 1. Fetch the generated itinerary or saved itinerary based on mode
     useEffect(() => {
         const fetchItinerary = async () => {
             try {
                 setLoading(true);
+                let res;
                 if (mode === 'generate') {
-                    const res = await generateItinerary(tripCode);
+                    res = await generateItinerary(tripCode);
                     console.log('📦 GENERATED data:', res.data.data);
-                    setItineraryData(res.data.data);
                 } else {
-                    const res = await getSavedItinerary(tripCode);
+                    res = await getSavedItinerary(tripCode);
                     console.log('📦 SAVED data:', res.data.data);
-                    setItineraryData(res.data.data);
                 }
+
+                const payload = res.data.data;
+                setItineraryData(payload);
+                setLockedItems(payload.lockedItems || payload.locked_items || []);
+                setIsPreviewValid(true);
+                setPreviewErrors([]);
+                setFreeTimeGaps([]);
+                setSuggestions([]);
+
+                const flatItinerary = Object.keys(payload.byDay || {}).flatMap((day) => {
+                    return (payload.byDay[day] || []).map((item, index) => ({
+                        ...item,
+                        day_number: Number(day),
+                        item_code: item.item_code || `item-${item.attraction_id || item.id || `${day}-${index}`}`
+                    }));
+                });
+
+                setWorkingItinerary(flatItinerary);
+                setSelectedDay(flatItinerary.length ? String(flatItinerary[0]?.day_number || 1) : '1');
             } catch (err) {
                 console.error('Error fetching itinerary:', err);
                 setError(err?.response?.data?.message || `Failed to ${mode === 'generate' ? 'generate' : 'load'} itinerary`);
@@ -212,7 +259,7 @@ export const TripItineraryPage = () => {
             return;
         }
 
-        const currentDayAttractions = itineraryData.byDay?.[selectedDay] || [];
+        const currentDayAttractions = workingByDay[selectedDay] || [];
         const startLat = parseFloat(itineraryData.trip?.start_lat);
         const startLng = parseFloat(itineraryData.trip?.start_lng);
         const endLat = parseFloat(itineraryData.trip?.end_lat);
@@ -272,7 +319,7 @@ export const TripItineraryPage = () => {
         };
 
         fetchRoute();
-    }, [selectedDay, itineraryData]);
+    }, [selectedDay, itineraryData, workingByDay]);
 
     // Helper functions
     const getDuration = (start, end) => {
@@ -281,12 +328,81 @@ export const TripItineraryPage = () => {
         return (eh * 60 + em) - (sh * 60 + sm);
     };
 
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'MMK',
-            minimumFractionDigits: 0
-        }).format(amount);
+    const getItemCode = (item) => item.item_code || item.id || item.attraction_id || '';
+
+    const handleRecalculateMove = async (itemCode, newDay, newPosition) => {
+        if (recalcLoadingItem || !tripCode) return;
+        const currentDay = Number(workingItinerary.find(it => getItemCode(it) === itemCode)?.day_number ?? newDay);
+        if (currentDay === newDay) {
+            const currentIndex = (workingByDay[String(currentDay)] || []).findIndex(it => getItemCode(it) === itemCode);
+            if (currentIndex === newPosition) {
+                setChangeDayFor(null);
+                return;
+            }
+        }
+
+        const action = {
+            type: 'move',
+            itemCode,
+            newDay,
+            newPosition
+        };
+
+        setRecalcError('');
+        setRecalcLoadingItem(itemCode);
+
+        try {
+            const res = await recalculateItinerary(tripCode, {
+                currentItinerary: workingItinerary,
+                action,
+                lockedItems
+            });
+
+            const payload = res.data.data || {};
+            const updatedItinerary = payload.recalculatedItinerary || workingItinerary;
+            const normalized = updatedItinerary.map((item) => ({
+                ...item,
+                day_number: Number(item.day_number ?? item.day ?? 1)
+            }));
+
+            setWorkingItinerary(normalized);
+            setItineraryData((prev) => prev ? { ...prev, summary: { ...prev.summary, ...payload.totals } } : prev);
+            setIsPreviewValid(payload.isValid !== false);
+            setPreviewErrors(payload.errors || []);
+            setFreeTimeGaps(payload.freeTimeGaps || []);
+            setSuggestions(payload.suggestions || []);
+
+            if (payload.errors && payload.errors.length) {
+                setRecalcError(payload.errors.join(' • '));
+            }
+        } catch (err) {
+            console.error('Recalculate error:', err);
+            setRecalcError(err?.response?.data?.message || 'Failed to recalculate itinerary');
+        } finally {
+            setRecalcLoadingItem(null);
+            setChangeDayFor(null);
+        }
+    };
+
+    const handleOpenChangeDay = (itemCode) => {
+        setChangeDayFor(itemCode);
+        setChangeDayValues({ newDay: selectedDay, newPosition: '0' });
+    };
+
+    const handleChangeDayInput = (field, value) => {
+        setChangeDayValues((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleApplyChangeDay = async (itemCode) => {
+        const newDay = Number(changeDayValues.newDay);
+        const targetDayItems = workingByDay[String(newDay)] || [];
+        const maxPosition = targetDayItems.length;
+        const parsedPosition = Math.max(0, Math.min(maxPosition, Number(changeDayValues.newPosition)));
+        await handleRecalculateMove(itemCode, newDay, parsedPosition);
+    };
+
+    const handleCancelChangeDay = () => {
+        setChangeDayFor(null);
     };
 
     const handleSaveItinerary = async () => {
@@ -297,9 +413,9 @@ export const TripItineraryPage = () => {
         setSaveSuccess('');
 
         try {
-            const itinerary = Object.keys(itineraryData.byDay).flatMap((day) => {
+            const itinerary = Object.keys(workingByDay).flatMap((day) => {
                 const dayNumber = Number(day);
-                return itineraryData.byDay[day].map((att) => ({
+                return workingByDay[day].map((att) => ({
                     day_number: dayNumber,
                     attraction_id: att.attraction_id ?? att.id ?? null,
                     visit_start_time: att.visit_start_time ?? '',
@@ -448,7 +564,7 @@ const handleExportPDF = async () => {
         pdfContainer.appendChild(style);
 
         // Build HTML for days and attractions
-        const byDay = itineraryData.byDay || {};
+        const byDay = workingByDay;
         const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
         let daysHtml = '';
 
@@ -566,9 +682,9 @@ const handleExportPDF = async () => {
         );
     }
 
-    const { trip, summary, byDay } = itineraryData;
-    const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
-    const currentDayAttractions = byDay[selectedDay] || [];
+    const { trip, summary } = itineraryData;
+    const days = Object.keys(workingByDay).sort((a, b) => Number(a) - Number(b));
+    const currentDayAttractions = workingByDay[selectedDay] || [];
 
     console.log(`Day ${selectedDay} attractions:`, currentDayAttractions);
 
@@ -761,6 +877,46 @@ const handleExportPDF = async () => {
                     </div>
                 </div>
 
+                {previewErrors.length > 0 && (
+                    <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <div className="font-semibold mb-2">Preview validation issues</div>
+                        <ul className="list-disc list-inside space-y-1">
+                            {previewErrors.map((err, index) => (
+                                <li key={index}>{err}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {(freeTimeGaps.length > 0 || suggestions.length > 0) && (
+                    <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-800">
+                        {freeTimeGaps.length > 0 && (
+                            <div className="mb-3">
+                                <div className="font-semibold text-slate-900 mb-2">Free time gaps</div>
+                                <ul className="list-disc list-inside space-y-1">
+                                    {freeTimeGaps.map((gap, index) => (
+                                        <li key={`gap-${index}`}>
+                                            Day {gap.day}: {gap.start} - {gap.end} ({gap.minutes} min)
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {suggestions.length > 0 && (
+                            <div>
+                                <div className="font-semibold text-slate-900 mb-2">Suggested insertions</div>
+                                <ul className="list-disc list-inside space-y-1">
+                                    {suggestions.map((suggestion, index) => (
+                                        <li key={`suggestion-${index}`}>
+                                            {suggestion.suggestedAttraction.name} on day {suggestion.suggestedAttraction.placementTime} ({suggestion.suggestedAttraction.duration} min)
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Map + List Grid - Enhanced */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Map Section */}
@@ -919,6 +1075,82 @@ const handleExportPDF = async () => {
                                                     )}
                                                 </div>
                                             </div>
+                                            <div className="mt-4 space-y-3">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <button
+                                                        onClick={() => handleRecalculateMove(getItemCode(att), Number(selectedDay), idx - 1)}
+                                                        disabled={recalcLoadingItem !== null || idx === 0 || lockedItems.includes(getItemCode(att))}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
+                                                    >
+                                                        ▲ Up
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRecalculateMove(getItemCode(att), Number(selectedDay), idx + 1)}
+                                                        disabled={recalcLoadingItem !== null || idx === currentDayAttractions.length - 1 || lockedItems.includes(getItemCode(att))}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
+                                                    >
+                                                        ▼ Down
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenChangeDay(getItemCode(att))}
+                                                        disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
+                                                    >
+                                                        ⟳ Change day
+                                                    </button>
+                                                    {lockedItems.includes(getItemCode(att)) && (
+                                                        <span className="text-xs text-gray-500 px-2 py-1 rounded-full bg-gray-100">Locked</span>
+                                                    )}
+                                                </div>
+                                                {changeDayFor === getItemCode(att) && (
+                                                    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <label className="space-y-2 text-xs text-gray-600">
+                                                                <span className="font-semibold">Target Day</span>
+                                                                <select
+                                                                    value={changeDayValues.newDay}
+                                                                    onChange={(e) => handleChangeDayInput('newDay', e.target.value)}
+                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                                                                >
+                                                                    {days.map((day) => (
+                                                                        <option key={day} value={day}>Day {day}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </label>
+                                                            <label className="space-y-2 text-xs text-gray-600">
+                                                                <span className="font-semibold">Position</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={(workingByDay[changeDayValues.newDay] || []).length}
+                                                                    value={changeDayValues.newPosition}
+                                                                    onChange={(e) => handleChangeDayInput('newPosition', e.target.value)}
+                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                                                                />
+                                                            </label>
+                                                            <div className="flex items-end gap-2">
+                                                                <button
+                                                                    onClick={() => handleApplyChangeDay(getItemCode(att))}
+                                                                    disabled={recalcLoadingItem !== null}
+                                                                    className="w-full rounded-xl bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#164e63]"
+                                                                >
+                                                                    Apply
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleCancelChangeDay}
+                                                                    type="button"
+                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        {recalcError && (
+                                                            <p className="mt-3 text-xs text-red-600">{recalcError}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -932,7 +1164,8 @@ const handleExportPDF = async () => {
                     {mode === 'generate' && (
                         <button
                             onClick={handleSaveItinerary}
-                            disabled={saving}
+                            disabled={saving || !isPreviewValid}
+                            title={!isPreviewValid ? 'Resolve preview validation issues before saving' : ''}
                             className="relative group px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#10B981] to-[#059669] text-white hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden"
                         >
                             <span className="relative z-10 flex items-center gap-2">
