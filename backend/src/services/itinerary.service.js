@@ -753,7 +753,16 @@ function applyAction(itinerary, action, lockedItems, tripDays) {
         }
         const item = updated.find(i => i.item_code === action.itemCode);
         if (!item) throw { statusCode: 400, message: 'Item not found' };
-        item.visit_start_time = new Date(action.newStartTime);
+
+        // Apply new start time if provided
+        if (action.newStartTime) {
+            item.visit_start_time = new Date(action.newStartTime);
+        }
+        // Apply new duration if provided
+        if (action.newDuration !== undefined && !isNaN(action.newDuration)) {
+            item.duration_minutes = action.newDuration;
+        }
+        // Recalculate end time based on (possibly new) start and duration
         item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
     }
 
@@ -767,6 +776,20 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
     const dayStartTime = parseTime(schedule.day_start_time);
     const dayEndTime = parseTime(schedule.day_end_time);
     const startLocation = { lat: Number(trip.start_lat), lng: Number(trip.start_lng) };
+    const calculateDistance = require('../utils/distance').calculateDistance;
+
+    // Estimate travel time in minutes based on straight-line distance (km)
+    // Use the same heuristics as `routing.service.getTravelTimeSmart` for short/mid distances.
+    // Return `null` to indicate ORS should be used for longer distances (>= 10 km).
+    function estimateTravelTime(distanceKm) {
+        if (distanceKm < 3) {
+            return Math.max(1, Math.ceil(distanceKm * 2));
+        } else if (distanceKm < 10) {
+            return Math.max(2, Math.ceil(distanceKm * 2.5));
+        } else {
+            return null; // use ORS for long distances
+        }
+    }
 
     for (let day = 1; day <= tripDays; day++) {
         const dayItems = updated.filter(i => Number(i.day_number) === Number(day)).sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
@@ -791,15 +814,19 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
             const itemLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
 
             if (i === 0 && dayStartPoint) {
-                // First item of day 1: travel from trip start point
-                const travel = await orsService.getTravelTime(dayStartPoint, itemLatLng);
-                item.travel_minutes = travel;
-                item.distance_from_previous = require('../utils/distance').calculateDistance(
+                // First item of day 1: estimate travel from trip start point (no ORS call)
+                const distance = calculateDistance(
                     dayStartPoint.lat,
                     dayStartPoint.lng,
                     Number(item.latitude),
                     Number(item.longitude)
                 );
+                let travel = estimateTravelTime(distance);
+                if (travel === null) {
+                    travel = await orsService.getTravelTime(dayStartPoint, itemLatLng);
+                }
+                item.travel_minutes = travel;
+                item.distance_from_previous = distance;
                 item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
             } else if (i === 0 && !dayStartPoint) {
                 // First item of other days: no travel from previous (start of day)
@@ -807,15 +834,19 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
                 item.distance_from_previous = 0;
                 item.visit_start_time = new Date(currentTime);
             } else if (prevLatLng) {
-                // Subsequent items: travel from previous attraction
-                const travel = await orsService.getTravelTime(prevLatLng, itemLatLng);
-                item.travel_minutes = travel;
-                item.distance_from_previous = require('../utils/distance').calculateDistance(
+                // Subsequent items: estimate travel from previous attraction (no ORS call)
+                const distance = calculateDistance(
                     prevLatLng.lat,
                     prevLatLng.lng,
                     Number(item.latitude),
                     Number(item.longitude)
                 );
+                let travel = estimateTravelTime(distance);
+                if (travel === null) {
+                    travel = await orsService.getTravelTime(prevLatLng, itemLatLng);
+                }
+                item.travel_minutes = travel;
+                item.distance_from_previous = distance;
                 item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
             }
 
