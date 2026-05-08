@@ -483,7 +483,18 @@ exports.getSavedItinerary = async (tripCode) => {
 
         let travelMinutes = 0;
         const previousItem = sortedItems[index - 1];
-        if (previousItem && previousItem.day_number === item.day_number) {
+        // If this is the first attraction of day 1, estimate travel from trip start
+        if (index === 0 && item.day_number === 1) {
+            const startLat = parseFloat(trip.start_lat);
+            const startLng = parseFloat(trip.start_lng);
+            const attractionLat = parseFloat(attraction.latitude);
+            const attractionLng = parseFloat(attraction.longitude);
+            if (!isNaN(startLat) && !isNaN(startLng) && !isNaN(attractionLat) && !isNaN(attractionLng)) {
+                const distance = require('../utils/distance').calculateDistance(startLat, startLng, attractionLat, attractionLng);
+                // Use same fallback as buildTimeline (3 minutes per km)
+                travelMinutes = Math.max(1, Math.ceil(distance * 3));
+            }
+        } else if (previousItem && previousItem.day_number === item.day_number) {
             const previousEnd = new Date(previousItem.visit_end_time);
             travelMinutes = Math.max(0, Math.round((startTime - previousEnd) / 60000));
         }
