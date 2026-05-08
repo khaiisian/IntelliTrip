@@ -1,6 +1,7 @@
 const scheduleRepo = require('../repositories/tripSchedule.repository');
 const ScheduleResponse = require('../models/tripSchedule/tripSchedule.response');
 const { CreateScheduleRequest, UpdateScheduleRequest } = require('../models/tripSchedule/tripSchedule.request');
+const toTime = require('../utils/formatTime');
 
 exports.getSchedulesByTrip = async (tripId) => {
     const schedules = await scheduleRepo.findByTrip(tripId);
@@ -25,9 +26,9 @@ exports.createSchedule = async (payload) => {
     if (!request.day_start_time || !request.day_end_time)
         throw { statusCode: 400, message: "Start and End time required" };
 
-    // Convert TIME → DateTime
-    const start = new Date(`1970-01-01T${request.day_start_time}:00Z`);
-    const end = new Date(`1970-01-01T${request.day_end_time}:00Z`);
+    // Convert TIME → DateTime (use UTC-based parser)
+    const start = toTime(request.day_start_time);
+    const end = toTime(request.day_end_time);
 
     if (start >= end)
         throw { statusCode: 400, message: "Start time must be before end time" };
@@ -50,11 +51,11 @@ exports.updateSchedule = async (id, payload) => {
     const request = new UpdateScheduleRequest(payload);
 
     const start = request.day_start_time
-        ? new Date(`1970-01-01T${request.day_start_time}`)
+        ? toTime(request.day_start_time)
         : existing.day_start_time;
 
     const end = request.day_end_time
-        ? new Date(`1970-01-01T${request.day_end_time}`)
+        ? toTime(request.day_end_time)
         : existing.day_end_time;
 
     if (start >= end)

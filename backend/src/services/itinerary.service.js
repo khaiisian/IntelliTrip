@@ -766,6 +766,7 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
 
     const dayStartTime = parseTime(schedule.day_start_time);
     const dayEndTime = parseTime(schedule.day_end_time);
+    const startLocation = { lat: Number(trip.start_lat), lng: Number(trip.start_lng) };
 
     for (let day = 1; day <= tripDays; day++) {
         const dayItems = updated.filter(i => Number(i.day_number) === Number(day)).sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
@@ -773,28 +774,41 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
 
         let currentTime = new Date(dayStartTime);
         let prevLatLng = null;
+
+        // Determine the starting point for this day (only day 1 uses trip start point)
+        const dayStartPoint = (day === 1) ? startLocation : null;
+
         for (let i = 0; i < dayItems.length; i++) {
             const item = dayItems[i];
             if (lockedItems.includes(item.item_code)) {
                 // Locked: keep original times, update currentTime to its end
                 currentTime = new Date(item.visit_end_time);
-                prevLatLng = {
-                    lat: Number(item.latitude),
-                    lng: Number(item.longitude)
-                };
+                prevLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
                 continue;
             }
-            // Unlocked: recompute
-            if (i === 0 || !prevLatLng) {
-                item.visit_start_time = new Date(currentTime);
-            } else {
-                const travel = await orsService.getTravelTime(
-                    prevLatLng,
-                    {
-                        lat: Number(item.latitude),
-                        lng: Number(item.longitude)
-                    }
+
+            // Unlocked: recompute time, travel, and score
+            const itemLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
+
+            if (i === 0 && dayStartPoint) {
+                // First item of day 1: travel from trip start point
+                const travel = await orsService.getTravelTime(dayStartPoint, itemLatLng);
+                item.travel_minutes = travel;
+                item.distance_from_previous = require('../utils/distance').calculateDistance(
+                    dayStartPoint.lat,
+                    dayStartPoint.lng,
+                    Number(item.latitude),
+                    Number(item.longitude)
                 );
+                item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
+            } else if (i === 0 && !dayStartPoint) {
+                // First item of other days: no travel from previous (start of day)
+                item.travel_minutes = 0;
+                item.distance_from_previous = 0;
+                item.visit_start_time = new Date(currentTime);
+            } else if (prevLatLng) {
+                // Subsequent items: travel from previous attraction
+                const travel = await orsService.getTravelTime(prevLatLng, itemLatLng);
                 item.travel_minutes = travel;
                 item.distance_from_previous = require('../utils/distance').calculateDistance(
                     prevLatLng.lat,
@@ -804,14 +818,24 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
                 );
                 item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
             }
+
             item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
             currentTime = new Date(item.visit_end_time);
-            prevLatLng = {
-                lat: Number(item.latitude),
-                lng: Number(item.longitude)
-            };
-            // Recalc score
-            const expScore = scoringService.computeExperienceScore(experiences.filter(e => e.attraction_id === item.attraction_id), item.visit_start_time);
+            prevLatLng = itemLatLng;
+
+            // SKIP SCORE RECALCULATION FOR PREVIEW
+            // Preserve the existing score from the original itinerary item so preview
+            // moves/edits do not produce unexpected negative scores.
+            // If dynamic scoring is required later, re-enable and ensure:
+            // - `base_score` is present on items
+            // - `remainingBudget` is computed before the current item
+            // - `todaySpent` and `idealDailyBudget` track per-day spending
+            // Example (commented):
+            /*
+            const expScore = scoringService.computeExperienceScore(
+                experiences.filter(e => e.attraction_id === item.attraction_id),
+                item.visit_start_time
+            );
             item.final_score = scoringService.computeScore({
                 basePreference: item.base_score || 0,
                 experienceScore: expScore,
@@ -819,17 +843,19 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
                 waitMinutes: 0,
                 cost: item.cost,
                 distance: item.distance_from_previous,
-                toEndDistance: 0, // Simplified
+                toEndDistance: 0,
                 toEndDistanceNormalized: 0,
                 maxCost,
                 currentDay: day,
                 totalDays: tripDays,
                 currentTime: item.visit_start_time,
                 remainingBudget: trip.budget - updated.reduce((sum, it) => sum + Number(it.cost || 0), 0),
-                todaySpent: 0, // Simplified
+                todaySpent: 0,
                 idealDailyBudget: trip.budget / tripDays
             });
+            */
         }
+
         // Check day end
         if (currentTime > dayEndTime) {
             throw { statusCode: 400, message: `Day ${day} exceeds end time` };
