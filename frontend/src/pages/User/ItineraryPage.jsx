@@ -190,6 +190,8 @@ export const TripItineraryPage = () => {
     const [lockedItems, setLockedItems] = useState([]);
     const [changeDayFor, setChangeDayFor] = useState(null);
     const [changeDayValues, setChangeDayValues] = useState({ newDay: '1', newPosition: '0' });
+    const [editTimeFor, setEditTimeFor] = useState(null);
+    const [editTimeValue, setEditTimeValue] = useState('');
 
     const workingByDay = useMemo(() => {
         const grouped = {};
@@ -387,6 +389,106 @@ export const TripItineraryPage = () => {
     const handleOpenChangeDay = (itemCode) => {
         setChangeDayFor(itemCode);
         setChangeDayValues({ newDay: selectedDay, newPosition: '0' });
+    };
+
+    const handleRecalculateDelete = async (itemCode) => {
+        if (recalcLoadingItem || !tripCode) return;
+
+        const action = {
+            type: 'delete',
+            itemCode
+        };
+
+        setRecalcError('');
+        setRecalcLoadingItem(itemCode);
+
+        try {
+            const res = await recalculateItinerary(tripCode, {
+                currentItinerary: workingItinerary,
+                action,
+                lockedItems
+            });
+
+            const payload = res.data.data || {};
+            const updatedItinerary = payload.recalculatedItinerary || workingItinerary;
+            const normalized = updatedItinerary.map((item) => ({
+                ...item,
+                day_number: Number(item.day_number ?? item.day ?? 1)
+            }));
+
+            setWorkingItinerary(normalized);
+            setItineraryData((prev) => prev ? { ...prev, summary: { ...prev.summary, ...payload.totals } } : prev);
+            setIsPreviewValid(payload.isValid !== false);
+            setPreviewErrors(payload.errors || []);
+            setFreeTimeGaps(payload.freeTimeGaps || []);
+            setSuggestions(payload.suggestions || []);
+
+            if (payload.errors && payload.errors.length) {
+                setRecalcError(payload.errors.join(' • '));
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            setRecalcError(err?.response?.data?.message || 'Failed to delete attraction');
+        } finally {
+            setRecalcLoadingItem(null);
+        }
+    };
+
+    const handleOpenEditTime = (itemCode, currentStartTime) => {
+        if (recalcLoadingItem) return;
+        setEditTimeFor(itemCode);
+        setEditTimeValue(currentStartTime || '');
+    };
+
+    const handleApplyEditTime = async (itemCode) => {
+        if (!editTimeValue || recalcLoadingItem) return;
+
+        const action = {
+            type: 'editTime',
+            itemCode,
+            newStartTime: editTimeValue
+        };
+
+        setRecalcError('');
+        setRecalcLoadingItem(itemCode);
+
+        try {
+            const res = await recalculateItinerary(tripCode, {
+                currentItinerary: workingItinerary,
+                action,
+                lockedItems
+            });
+
+            const payload = res.data.data || {};
+            const updatedItinerary = payload.recalculatedItinerary || workingItinerary;
+            const normalized = updatedItinerary.map((item) => ({
+                ...item,
+                day_number: Number(item.day_number ?? item.day ?? 1)
+            }));
+
+            setWorkingItinerary(normalized);
+            setItineraryData((prev) => prev ? { ...prev, summary: { ...prev.summary, ...payload.totals } } : prev);
+            setIsPreviewValid(payload.isValid !== false);
+            setPreviewErrors(payload.errors || []);
+            setFreeTimeGaps(payload.freeTimeGaps || []);
+            setSuggestions(payload.suggestions || []);
+
+            if (payload.errors && payload.errors.length) {
+                setRecalcError(payload.errors.join(' • '));
+            }
+        } catch (err) {
+            console.error('Edit time error:', err);
+            setRecalcError(err?.response?.data?.message || 'Failed to edit time');
+        } finally {
+            setRecalcLoadingItem(null);
+            setEditTimeFor(null);
+            setEditTimeValue('');
+        }
+    };
+
+    const handleCancelEditTime = () => {
+        setEditTimeFor(null);
+        setEditTimeValue('');
     };
 
     const handleChangeDayInput = (field, value) => {
@@ -1098,6 +1200,20 @@ const handleExportPDF = async () => {
                                                     >
                                                         ⟳ Change day
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleOpenEditTime(getItemCode(att), att.visit_start_time)}
+                                                        disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
+                                                    >
+                                                        ✏️ Edit time
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleRecalculateDelete(getItemCode(att))}
+                                                        disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-red-600 border-red-200 hover:bg-red-50"
+                                                    >
+                                                        🗑 Delete
+                                                    </button>
                                                     {lockedItems.includes(getItemCode(att)) && (
                                                         <span className="text-xs text-gray-500 px-2 py-1 rounded-full bg-gray-100">Locked</span>
                                                     )}
@@ -1140,6 +1256,39 @@ const handleExportPDF = async () => {
                                                                     onClick={handleCancelChangeDay}
                                                                     type="button"
                                                                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        {recalcError && (
+                                                            <p className="mt-3 text-xs text-red-600">{recalcError}</p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {editTimeFor === getItemCode(att) && (
+                                                    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-3 mt-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <label className="space-y-2 text-xs text-gray-600">
+                                                                <span className="font-semibold">New start time</span>
+                                                                <input
+                                                                    type="time"
+                                                                    value={editTimeValue}
+                                                                    onChange={(e) => setEditTimeValue(e.target.value)}
+                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                                                                />
+                                                            </label>
+                                                            <div className="flex items-end gap-2 col-span-2">
+                                                                <button
+                                                                    onClick={() => handleApplyEditTime(getItemCode(att))}
+                                                                    disabled={recalcLoadingItem !== null}
+                                                                    className="rounded-xl bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#164e63]"
+                                                                >
+                                                                    Apply
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleCancelEditTime}
+                                                                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
                                                                 >
                                                                     Cancel
                                                                 </button>
