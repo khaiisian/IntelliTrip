@@ -191,7 +191,8 @@ export const TripItineraryPage = () => {
     const [changeDayFor, setChangeDayFor] = useState(null);
     const [changeDayValues, setChangeDayValues] = useState({ newDay: '1', newPosition: '0' });
     const [editTimeFor, setEditTimeFor] = useState(null);
-    const [editTimeValue, setEditTimeValue] = useState('');
+    const [editStartValue, setEditStartValue] = useState('');
+    const [editDurationValue, setEditDurationValue] = useState('');
 
     const workingByDay = useMemo(() => {
         const grouped = {};
@@ -434,20 +435,21 @@ export const TripItineraryPage = () => {
         }
     };
 
-    const handleOpenEditTime = (itemCode, currentStartTime) => {
+    const handleOpenEditTime = (itemCode, currentStartTime, currentDuration) => {
         if (recalcLoadingItem) return;
         setEditTimeFor(itemCode);
-        setEditTimeValue(currentStartTime || '');
+        setEditStartValue(currentStartTime || '');
+        setEditDurationValue(currentDuration?.toString() || '');
     };
 
     const handleApplyEditTime = async (itemCode) => {
-        if (!editTimeValue || recalcLoadingItem) return;
+        const hasStartChange = editStartValue && editStartValue !== '';
+        const hasDurationChange = editDurationValue && !isNaN(parseInt(editDurationValue, 10));
+        if ((!hasStartChange && !hasDurationChange) || recalcLoadingItem) return;
 
-        const action = {
-            type: 'editTime',
-            itemCode,
-            newStartTime: editTimeValue
-        };
+        const action = { type: 'editTime', itemCode };
+        if (hasStartChange) action.newStartTime = editStartValue;
+        if (hasDurationChange) action.newDuration = parseInt(editDurationValue, 10);
 
         setRecalcError('');
         setRecalcLoadingItem(itemCode);
@@ -482,13 +484,15 @@ export const TripItineraryPage = () => {
         } finally {
             setRecalcLoadingItem(null);
             setEditTimeFor(null);
-            setEditTimeValue('');
+            setEditStartValue('');
+            setEditDurationValue('');
         }
     };
 
     const handleCancelEditTime = () => {
         setEditTimeFor(null);
-        setEditTimeValue('');
+        setEditStartValue('');
+        setEditDurationValue('');
     };
 
     const handleChangeDayInput = (field, value) => {
@@ -1201,7 +1205,7 @@ const handleExportPDF = async () => {
                                                         ⟳ Change day
                                                     </button>
                                                     <button
-                                                        onClick={() => handleOpenEditTime(getItemCode(att), att.visit_start_time)}
+                                                        onClick={() => handleOpenEditTime(getItemCode(att), att.visit_start_time, att.duration_minutes)}
                                                         disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
                                                         className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
                                                     >
@@ -1268,35 +1272,43 @@ const handleExportPDF = async () => {
                                                 )}
                                                 {editTimeFor === getItemCode(att) && (
                                                     <div className="rounded-2xl border border-gray-200 bg-slate-50 p-3 mt-3">
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                             <label className="space-y-2 text-xs text-gray-600">
                                                                 <span className="font-semibold">New start time</span>
                                                                 <input
                                                                     type="time"
-                                                                    value={editTimeValue}
-                                                                    onChange={(e) => setEditTimeValue(e.target.value)}
+                                                                    value={editStartValue}
+                                                                    onChange={(e) => setEditStartValue(e.target.value)}
                                                                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
                                                                 />
                                                             </label>
-                                                            <div className="flex items-end gap-2 col-span-2">
-                                                                <button
-                                                                    onClick={() => handleApplyEditTime(getItemCode(att))}
-                                                                    disabled={recalcLoadingItem !== null}
-                                                                    className="rounded-xl bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#164e63]"
-                                                                >
-                                                                    Apply
-                                                                </button>
-                                                                <button
-                                                                    onClick={handleCancelEditTime}
-                                                                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                            </div>
+                                                            <label className="space-y-2 text-xs text-gray-600">
+                                                                <span className="font-semibold">Duration (minutes)</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    value={editDurationValue}
+                                                                    onChange={(e) => setEditDurationValue(e.target.value)}
+                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                                                                />
+                                                            </label>
                                                         </div>
-                                                        {recalcError && (
-                                                            <p className="mt-3 text-xs text-red-600">{recalcError}</p>
-                                                        )}
+                                                        <div className="flex items-end gap-2 mt-3">
+                                                            <button
+                                                                onClick={() => handleApplyEditTime(getItemCode(att))}
+                                                                disabled={recalcLoadingItem !== null}
+                                                                className="rounded-xl bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#164e63]"
+                                                            >
+                                                                Apply
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEditTime}
+                                                                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                        {recalcError && <p className="mt-3 text-xs text-red-600">{recalcError}</p>}
                                                     </div>
                                                 )}
                                             </div>
