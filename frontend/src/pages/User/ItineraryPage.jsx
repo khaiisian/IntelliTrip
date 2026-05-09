@@ -193,6 +193,7 @@ export const TripItineraryPage = () => {
     const [editTimeFor, setEditTimeFor] = useState(null);
     const [editStartValue, setEditStartValue] = useState('');
     const [editDurationValue, setEditDurationValue] = useState('');
+    const [showFillForGap, setShowFillForGap] = useState(null);
 
     const workingByDay = useMemo(() => {
         const grouped = {};
@@ -493,6 +494,74 @@ export const TripItineraryPage = () => {
         setEditTimeFor(null);
         setEditStartValue('');
         setEditDurationValue('');
+    };
+
+    const handleToggleLock = (itemCode) => {
+        if (recalcLoadingItem) return;
+        setLockedItems(prev => 
+            prev.includes(itemCode) 
+                ? prev.filter(code => code !== itemCode) 
+                : [...prev, itemCode]
+        );
+        // No immediate recalc required when toggling lock in UI
+    };
+
+    const handleFillGap = (gap, options, gapIndex) => {
+        setShowFillForGap({ gap, options, gapIndex });
+    };
+
+    const handleSelectSuggestion = async (gap, option) => {
+        if (recalcLoadingItem || !tripCode) return;
+
+        const action = {
+            type: 'add',
+            targetDay: gap.day,
+            proposedStart: option.proposedStart,
+            suggestion: {
+                attraction_id: option.attraction_id,
+                name: option.name,
+                duration_minutes: option.duration,
+                cost: option.cost,
+                latitude: option.latitude,
+                longitude: option.longitude,
+                base_score: option.score
+            }
+        };
+
+        setRecalcError('');
+        setRecalcLoadingItem(`add-${gap.day}-${option.attraction_id}`);
+
+        try {
+            const res = await recalculateItinerary(tripCode, {
+                currentItinerary: workingItinerary,
+                action,
+                lockedItems
+            });
+
+            const payload = res.data.data || {};
+            const updatedItinerary = payload.recalculatedItinerary || workingItinerary;
+            const normalized = updatedItinerary.map((item) => ({
+                ...item,
+                day_number: Number(item.day_number ?? item.day ?? 1)
+            }));
+
+            setWorkingItinerary(normalized);
+            setItineraryData((prev) => prev ? { ...prev, summary: { ...prev.summary, ...payload.totals } } : prev);
+            setIsPreviewValid(payload.isValid !== false);
+            setPreviewErrors(payload.errors || []);
+            setFreeTimeGaps(payload.freeTimeGaps || []);
+            setSuggestions(payload.suggestions || []);
+
+            if (payload.errors && payload.errors.length) {
+                setRecalcError(payload.errors.join(' • '));
+            }
+            setShowFillForGap(null);
+        } catch (err) {
+            console.error('Add suggestion error:', err);
+            setRecalcError(err?.response?.data?.message || 'Failed to insert suggestion');
+        } finally {
+            setRecalcLoadingItem(null);
+        }
     };
 
     const handleChangeDayInput = (field, value) => {
@@ -996,30 +1065,39 @@ const handleExportPDF = async () => {
 
                 {(freeTimeGaps.length > 0 || suggestions.length > 0) && (
                     <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-800">
-                        {freeTimeGaps.length > 0 && (
-                            <div className="mb-3">
-                                <div className="font-semibold text-slate-900 mb-2">Free time gaps</div>
-                                <ul className="list-disc list-inside space-y-1">
-                                    {freeTimeGaps.map((gap, index) => (
-                                        <li key={`gap-${index}`}>
-                                            Day {gap.day}: {gap.start} - {gap.end} ({gap.minutes} min)
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        {suggestions.length > 0 && (
-                            <div>
-                                <div className="font-semibold text-slate-900 mb-2">Suggested insertions</div>
-                                <ul className="list-disc list-inside space-y-1">
-                                    {suggestions.map((suggestion, index) => (
-                                        <li key={`suggestion-${index}`}>
-                                            {suggestion.suggestedAttraction.name} on day {suggestion.suggestedAttraction.placementTime} ({suggestion.suggestedAttraction.duration} min)
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+                        {freeTimeGaps.map((gap, idx) => {
+                            const gapSuggestions = suggestions.find(s => s.gapIndex === idx);
+                            return (
+                                <div key={idx} className="mb-3">
+                                    <div className="font-semibold">Free time: Day {gap.day} {gap.start} – {gap.end} ({gap.minutes} min)</div>
+                                    {gapSuggestions && gapSuggestions.options.length > 0 && (
+                                        <button
+                                            onClick={() => handleFillGap(gap, gapSuggestions.options, idx)}
+                                            className="mt-1 px-3 py-1 rounded-full bg-blue-600 text-white text-xs"
+                                        >
+                                            Fill this slot
+                                        </button>
+                                    )}
+
+                                    {showFillForGap?.gapIndex === idx && (
+                                        <div className="mt-2 p-2 bg-white rounded-lg border">
+                                            <div className="font-medium mb-1">Choose an attraction:</div>
+                                            {showFillForGap.options.map((opt, i) => (
+                                                <div key={i} className="flex justify-between items-center py-1 border-b last:border-0">
+                                                    <span>{opt.name} ({opt.duration} min, {opt.cost} Ks)</span>
+                                                    <button
+                                                        onClick={() => handleSelectSuggestion(gap, opt)}
+                                                        className="px-2 py-1 bg-green-600 text-white text-xs rounded"
+                                                    >
+                                                        Insert
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -1212,6 +1290,13 @@ const handleExportPDF = async () => {
                                                         ✏️ Edit time
                                                     </button>
                                                     <button
+                                                        onClick={() => handleToggleLock(getItemCode(att))}
+                                                        disabled={recalcLoadingItem !== null}
+                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
+                                                    >
+                                                        {lockedItems.includes(getItemCode(att)) ? '🔓 Unlock' : '🔒 Lock'}
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleRecalculateDelete(getItemCode(att))}
                                                         disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
                                                         className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-red-600 border-red-200 hover:bg-red-50"
@@ -1219,7 +1304,9 @@ const handleExportPDF = async () => {
                                                         🗑 Delete
                                                     </button>
                                                     {lockedItems.includes(getItemCode(att)) && (
-                                                        <span className="text-xs text-gray-500 px-2 py-1 rounded-full bg-gray-100">Locked</span>
+                                                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                                            🔒 Locked
+                                                        </span>
                                                     )}
                                                 </div>
                                                 {changeDayFor === getItemCode(att) && (
