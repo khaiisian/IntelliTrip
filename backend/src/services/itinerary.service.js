@@ -767,7 +767,8 @@ function applyAction(itinerary, action, lockedItems, tripDays) {
 
         // Apply new start time if provided
         if (action.newStartTime) {
-            item.visit_start_time = new Date(action.newStartTime);
+            // Use parseTime to handle "HH:MM" time strings reliably
+            item.visit_start_time = parseTime(action.newStartTime);
         }
         // Apply new duration if provided
         if (action.newDuration !== undefined && !isNaN(action.newDuration)) {
@@ -814,7 +815,7 @@ function applyAction(itinerary, action, lockedItems, tripDays) {
     return updated;
 }
 
-async function buildTimeline(itinerary, tripConfig, lockedItems) {
+async function buildTimeline(itinerary, tripConfig, lockedItems, action = null) {
     const { trip, schedule, experiences, systemConfig, tripDays, maxCost } = tripConfig;
 
     // 1. Save original times for locked items
@@ -842,12 +843,26 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
     }
 
     for (let day = 1; day <= tripDays; day++) {
-        const dayItems = updated.filter(i => Number(i.day_number) === Number(day)).sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        // Get items for the day, keep original order for manual reorder/edit actions
+        let dayItems = updated.filter(i => Number(i.day_number) === Number(day));
+        // Keep original order for manual edits/moves/reorders
+        const keepOrder = action && (action.type === 'editTime' || action.type === 'move' || action.type === 'reorder');
+        if (!keepOrder) {
+            dayItems = dayItems.sort((a, b) => new Date(a.visit_start_time) - new Date(b.visit_start_time));
+        }
         if (dayItems.length === 0) continue;
 
         let currentTime = new Date(dayStartTime);
         let prevLatLng = null;
         const dayStartPoint = (day === 1) ? startLocation : null;
+
+        // Determine if this day contains the edited item
+        let editedIndex = -1;
+        let editingThisDay = false;
+        if (action && action.type === 'editTime') {
+            editedIndex = dayItems.findIndex(i => i.item_code === action.itemCode);
+            if (editedIndex !== -1) editingThisDay = true;
+        }
 
         for (let i = 0; i < dayItems.length; i++) {
             const item = dayItems[i];
@@ -859,6 +874,13 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
             }
 
             const itemLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
+
+            // If this is the edited item, preserve its manually set start time
+            if (editingThisDay && i === editedIndex) {
+                currentTime = new Date(item.visit_end_time);
+                prevLatLng = itemLatLng;
+                continue;
+            }
 
             if (i === 0 && dayStartPoint) {
                 const distance = calculateDistance(dayStartPoint.lat, dayStartPoint.lng, Number(item.latitude), Number(item.longitude));
@@ -1092,11 +1114,25 @@ exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, act
             return copy;
         });
 
+        // Compute original free time gaps (from the current itinerary before any modification)
+        const originalFreeTime = detectFreeTime(normalisedItinerary, dayStartTime, dayEndTime, tripDays);
+
         let updated = applyAction(normalisedItinerary, action, lockedItems, tripDays);
 
-        updated = await buildTimeline(updated, tripConfig, lockedItems);
+        updated = await buildTimeline(updated, tripConfig, lockedItems, action);
 
         const freeTime = detectFreeTime(updated, dayStartTime, dayEndTime, tripDays);
+
+        // Create a Set of original gap signatures (day + start time + end time + minutes)
+        const originalGapKeys = new Set(originalFreeTime.map(g => {
+            return `${g.day}|${formatTime(g.start)}|${formatTime(g.end)}|${g.minutes}`;
+        }));
+
+        // Filter freeTime to only gaps that did NOT exist before the action
+        const trulyNewGaps = freeTime.filter(gap => {
+            const key = `${gap.day}|${formatTime(gap.start)}|${formatTime(gap.end)}|${gap.minutes}`;
+            return !originalGapKeys.has(key);
+        });
 
         // Determine which days were affected by the action
         let affectedDays = new Set();
@@ -1121,7 +1157,7 @@ exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, act
             for (let d = 1; d <= tripDays; d++) affectedDays.add(d);
         }
 
-        const filteredFreeTime = freeTime.filter(gap => affectedDays.has(Number(gap.day)));
+        const filteredFreeTime = trulyNewGaps.filter(gap => affectedDays.has(Number(gap.day)));
 
         const usedIds = updated.map(i => i.attraction_id);
         const totalCost = updated.reduce((sum, i) => sum + Number(i.cost || 0), 0);
@@ -1129,8 +1165,8 @@ exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, act
 
         // Provide trip start location and current day's attractions to the generator
         const tripStartLocation = { lat: Number(trip.start_lat), lng: Number(trip.start_lng) };
-        const currentDayAttractionsForRanking = (freeTime && freeTime.length)
-            ? updated.filter(i => Number(i.day_number) === Number(freeTime[0].day))
+        const currentDayAttractionsForRanking = (trulyNewGaps && trulyNewGaps.length)
+            ? updated.filter(i => Number(i.day_number) === Number(trulyNewGaps[0].day))
             : [];
 
         const suggestions = generateSuggestions(filteredFreeTime, attractions, usedIds, budgetRemaining, tripStartLocation, currentDayAttractionsForRanking, experiences);
