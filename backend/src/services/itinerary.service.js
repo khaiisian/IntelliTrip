@@ -777,29 +777,68 @@ function applyAction(itinerary, action, lockedItems, tripDays) {
         item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
     }
 
+    else if (action.type === 'add') {
+        // Expect action.suggestion to contain attraction details (id, name, duration_minutes, cost, latitude, longitude)
+        const suggestion = action.suggestion;
+        if (!suggestion || !suggestion.attraction_id) {
+            throw { statusCode: 400, message: 'Invalid suggestion data for add action' };
+        }
+
+        if (lockedItems.includes(suggestion.attraction_id)) {
+            throw { statusCode: 400, message: 'Cannot add a locked attraction' };
+        }
+
+        const newCode = `new:${suggestion.attraction_id}:${Date.now()}`;
+        const targetDay = action.targetDay || suggestion.targetDay || 1;
+        const proposedStart = action.proposedStart || suggestion.proposedStart || null;
+
+        const newItem = {
+            item_code: newCode,
+            attraction_id: suggestion.attraction_id,
+            attraction_name: suggestion.name || suggestion.attraction_name || '',
+            latitude: suggestion.latitude || suggestion.lat || 0,
+            longitude: suggestion.longitude || suggestion.lng || 0,
+            duration_minutes: suggestion.duration_minutes || suggestion.duration || 60,
+            cost: suggestion.cost || 0,
+            base_score: suggestion.base_score || 0,
+            day_number: targetDay,
+            visit_start_time: proposedStart ? new Date(proposedStart) : formatTime(new Date()),
+            visit_end_time: proposedStart ? new Date(new Date(proposedStart).getTime() + (suggestion.duration_minutes || suggestion.duration || 60) * 60000) : formatTime(new Date()),
+            // mark as not locked
+            locked: false
+        };
+
+        updated.push(newItem);
+    }
+
     return updated;
 }
 
 async function buildTimeline(itinerary, tripConfig, lockedItems) {
     const { trip, schedule, experiences, systemConfig, tripDays, maxCost } = tripConfig;
-    let updated = JSON.parse(JSON.stringify(itinerary));
+
+    // 1. Save original times for locked items
+    const lockedOriginalTimes = new Map();
+    for (const item of (itinerary || [])) {
+        if (lockedItems.includes(item.item_code)) {
+            lockedOriginalTimes.set(item.item_code, {
+                start: item.visit_start_time,
+                end: item.visit_end_time
+            });
+        }
+    }
+
+    let updated = JSON.parse(JSON.stringify(itinerary || []));
 
     const dayStartTime = parseTime(schedule.day_start_time);
     const dayEndTime = parseTime(schedule.day_end_time);
     const startLocation = { lat: Number(trip.start_lat), lng: Number(trip.start_lng) };
     const calculateDistance = require('../utils/distance').calculateDistance;
 
-    // Estimate travel time in minutes based on straight-line distance (km)
-    // Use the same heuristics as `routing.service.getTravelTimeSmart` for short/mid distances.
-    // Return `null` to indicate ORS should be used for longer distances (>= 10 km).
     function estimateTravelTime(distanceKm) {
-        if (distanceKm < 3) {
-            return Math.max(1, Math.ceil(distanceKm * 2));
-        } else if (distanceKm < 10) {
-            return Math.max(2, Math.ceil(distanceKm * 2.5));
-        } else {
-            return null; // use ORS for long distances
-        }
+        if (distanceKm < 3) return Math.max(1, Math.ceil(distanceKm * 2));
+        if (distanceKm < 10) return Math.max(2, Math.ceil(distanceKm * 2.5));
+        return null;
     }
 
     for (let day = 1; day <= tripDays; day++) {
@@ -808,54 +847,34 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
 
         let currentTime = new Date(dayStartTime);
         let prevLatLng = null;
-
-        // Determine the starting point for this day (only day 1 uses trip start point)
         const dayStartPoint = (day === 1) ? startLocation : null;
 
         for (let i = 0; i < dayItems.length; i++) {
             const item = dayItems[i];
             if (lockedItems.includes(item.item_code)) {
-                // Locked: keep original times, update currentTime to its end
+                // Keep original times, update currentTime to its end
                 currentTime = new Date(item.visit_end_time);
                 prevLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
                 continue;
             }
 
-            // Unlocked: recompute time, travel, and score
             const itemLatLng = { lat: Number(item.latitude), lng: Number(item.longitude) };
 
             if (i === 0 && dayStartPoint) {
-                // First item of day 1: estimate travel from trip start point (no ORS call)
-                const distance = calculateDistance(
-                    dayStartPoint.lat,
-                    dayStartPoint.lng,
-                    Number(item.latitude),
-                    Number(item.longitude)
-                );
+                const distance = calculateDistance(dayStartPoint.lat, dayStartPoint.lng, Number(item.latitude), Number(item.longitude));
                 let travel = estimateTravelTime(distance);
-                if (travel === null) {
-                    travel = await orsService.getTravelTime(dayStartPoint, itemLatLng);
-                }
+                if (travel === null) travel = await orsService.getTravelTime(dayStartPoint, itemLatLng);
                 item.travel_minutes = travel;
                 item.distance_from_previous = distance;
                 item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
             } else if (i === 0 && !dayStartPoint) {
-                // First item of other days: no travel from previous (start of day)
                 item.travel_minutes = 0;
                 item.distance_from_previous = 0;
                 item.visit_start_time = new Date(currentTime);
             } else if (prevLatLng) {
-                // Subsequent items: estimate travel from previous attraction (no ORS call)
-                const distance = calculateDistance(
-                    prevLatLng.lat,
-                    prevLatLng.lng,
-                    Number(item.latitude),
-                    Number(item.longitude)
-                );
+                const distance = calculateDistance(prevLatLng.lat, prevLatLng.lng, Number(item.latitude), Number(item.longitude));
                 let travel = estimateTravelTime(distance);
-                if (travel === null) {
-                    travel = await orsService.getTravelTime(prevLatLng, itemLatLng);
-                }
+                if (travel === null) travel = await orsService.getTravelTime(prevLatLng, itemLatLng);
                 item.travel_minutes = travel;
                 item.distance_from_previous = distance;
                 item.visit_start_time = new Date(currentTime.getTime() + travel * 60000);
@@ -864,52 +883,29 @@ async function buildTimeline(itinerary, tripConfig, lockedItems) {
             item.visit_end_time = new Date(item.visit_start_time.getTime() + item.duration_minutes * 60000);
             currentTime = new Date(item.visit_end_time);
             prevLatLng = itemLatLng;
-
-            // SKIP SCORE RECALCULATION FOR PREVIEW
-            // Preserve the existing score from the original itinerary item so preview
-            // moves/edits do not produce unexpected negative scores.
-            // If dynamic scoring is required later, re-enable and ensure:
-            // - `base_score` is present on items
-            // - `remainingBudget` is computed before the current item
-            // - `todaySpent` and `idealDailyBudget` track per-day spending
-            // Example (commented):
-            /*
-            const expScore = scoringService.computeExperienceScore(
-                experiences.filter(e => e.attraction_id === item.attraction_id),
-                item.visit_start_time
-            );
-            item.final_score = scoringService.computeScore({
-                basePreference: item.base_score || 0,
-                experienceScore: expScore,
-                travelMinutes: item.travel_minutes,
-                waitMinutes: 0,
-                cost: item.cost,
-                distance: item.distance_from_previous,
-                toEndDistance: 0,
-                toEndDistanceNormalized: 0,
-                maxCost,
-                currentDay: day,
-                totalDays: tripDays,
-                currentTime: item.visit_start_time,
-                remainingBudget: trip.budget - updated.reduce((sum, it) => sum + Number(it.cost || 0), 0),
-                todaySpent: 0,
-                idealDailyBudget: trip.budget / tripDays
-            });
-            */
         }
 
-        // Check day end
         if (currentTime > dayEndTime) {
             throw { statusCode: 400, message: `Day ${day} exceeds end time` };
         }
     }
 
-    // Ensure all times are returned as 'HH:mm' strings
-    updated = updated.map(item => ({
+    // 2. Restore original times for locked items (preserve exact original Date objects)
+    for (const item of updated) {
+        const original = lockedOriginalTimes.get(item.item_code);
+        if (original) {
+            item.visit_start_time = original.start;
+            item.visit_end_time = original.end;
+        }
+    }
+
+    // 3. Convert all time fields back to Date objects (safe for JSON)
+    updated = (updated || []).map(item => ({
         ...item,
-        visit_start_time: formatTime(item.visit_start_time),
-        visit_end_time: formatTime(item.visit_end_time)
+        visit_start_time: new Date(item.visit_start_time),
+        visit_end_time: new Date(item.visit_end_time)
     }));
+
     return updated;
 }
 
@@ -925,8 +921,8 @@ function detectFreeTime(itinerary, dayStart, dayEnd, tripDays) {
         if (gapBefore > 30) {
             freeTimeGaps.push({
                 day,
-                start: formatTime(dayStart),
-                end: formatTime(firstStart),
+                start: dayStart,
+                end: firstStart,
                 minutes: gapBefore
             });
         }
@@ -937,8 +933,8 @@ function detectFreeTime(itinerary, dayStart, dayEnd, tripDays) {
             if (gap > 30) {
                 freeTimeGaps.push({
                     day,
-                    start: formatTime(dayItems[i].visit_end_time),
-                    end: formatTime(dayItems[i + 1].visit_start_time),
+                    start: new Date(dayItems[i].visit_end_time),
+                    end: new Date(dayItems[i + 1].visit_start_time),
                     minutes: gap
                 });
             }
@@ -950,8 +946,8 @@ function detectFreeTime(itinerary, dayStart, dayEnd, tripDays) {
         if (gapAfter > 30) {
             freeTimeGaps.push({
                 day,
-                start: formatTime(lastEnd),
-                end: formatTime(dayEnd),
+                start: lastEnd,
+                end: dayEnd,
                 minutes: gapAfter
             });
         }
@@ -959,27 +955,67 @@ function detectFreeTime(itinerary, dayStart, dayEnd, tripDays) {
     return freeTimeGaps;
 }
 
-function generateSuggestions(freeTimeGaps, attractions, usedIds, budgetRemaining) {
+function generateSuggestions(freeTimeGaps, attractions, usedIds, budgetRemaining, tripStartLocation = null, currentDayAttractions = [], experiences = []) {
     const suggestions = [];
     const remainingAttractions = attractions.filter(a => !usedIds.includes(a.attraction_id));
+
     for (const gap of freeTimeGaps) {
-        if (gap.minutes > 30) { // Use 30 min threshold
-            const feasible = remainingAttractions.filter(a => a.duration_minutes <= gap.minutes && a.cost <= budgetRemaining);
-            const topAttr = feasible.sort((a, b) => b.base_score - a.base_score)[0];
-            if (topAttr) {
-                const placementTime = new Date(gap.start).getTime() + (gap.minutes / 2) * 60000; // Mid-gap
-                suggestions.push({
-                    gapIndex: freeTimeGaps.indexOf(gap),
-                    suggestedAttraction: {
-                        attraction_id: topAttr.attraction_id,
-                        name: topAttr.attraction_name,
-                        placementTime: formatTime(new Date(placementTime)),
-                        duration: topAttr.duration_minutes,
-                        cost: topAttr.cost
-                    }
-                });
-            }
+        if (gap.minutes < 30) continue;
+
+        const gapDuration = gap.minutes;
+        const proposedStartDate = new Date(gap.start.getTime() + (gap.minutes / 2) * 60000); // middle of gap
+
+        // Filter attractions that fit in the gap and budget
+        let feasible = remainingAttractions.filter(a => a.duration_minutes <= gapDuration && a.cost <= budgetRemaining);
+
+        // If we have location info, compute distance and score including experience score
+        if (tripStartLocation && currentDayAttractions && currentDayAttractions.length >= 0) {
+            // Find the attraction before the gap (if any)
+            const prevAttraction = (currentDayAttractions || []).find(att => att.visit_end_time === gap.start);
+            const prevLocation = prevAttraction
+                ? { lat: Number(prevAttraction.latitude), lng: Number(prevAttraction.longitude) }
+                : tripStartLocation;
+
+            feasible = feasible.map(attr => {
+                const distance = require('../utils/distance').calculateDistance(
+                    prevLocation.lat, prevLocation.lng,
+                    Number(attr.latitude), Number(attr.longitude)
+                );
+
+                // Experience score at proposed time
+                const attractionExperiences = experiences.filter(e => e.attraction_id === attr.attraction_id);
+                const experienceScore = scoringService.computeExperienceScore(attractionExperiences, proposedStartDate);
+
+                // Composite score: base_preference (40%) + experience (30%) + distance (20%) + cost (10%)
+                const compositeScore = (attr.base_score * 0.4)
+                    + (experienceScore * 0.3)
+                    + (1 / (distance + 1)) * 0.2
+                    + (1 / (Number(attr.cost || 0) + 1)) * 0.1;
+
+                return { ...attr, distance, experienceScore, score: compositeScore };
+            }).sort((a, b) => b.score - a.score).slice(0, 3);
+        } else {
+            feasible = feasible.sort((a, b) => b.base_score - a.base_score).slice(0, 3);
         }
+
+        if (!feasible || feasible.length === 0) continue;
+
+        suggestions.push({
+            gapIndex: freeTimeGaps.indexOf(gap),
+            gap,
+            options: feasible.map(attr => ({
+                attraction_id: attr.attraction_id,
+                name: attr.attraction_name,
+                duration: attr.duration_minutes,
+                cost: attr.cost,
+                latitude: attr.latitude,
+                longitude: attr.longitude,
+                distance: attr.distance || null,
+                experienceScore: attr.experienceScore || 0,
+                compositeScore: attr.score,
+                proposedStart: formatTime(proposedStartDate)
+            }))
+        });
     }
     return suggestions;
 }
@@ -1043,26 +1079,84 @@ exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, act
 
         const tripConfig = { trip, schedule, experiences, systemConfig, tripDays, maxCost };
 
-        let updated = applyAction(currentItinerary, action, lockedItems, tripDays);
+        // Normalise currentItinerary: convert time strings to Date objects (using parseTime)
+        // This ensures that JSON serialisation later produces ISO strings, not plain "HH:MM"
+        const normalisedItinerary = (currentItinerary || []).map(item => {
+            const copy = { ...item };
+            if (typeof copy.visit_start_time === 'string') {
+                copy.visit_start_time = parseTime(copy.visit_start_time);
+            }
+            if (typeof copy.visit_end_time === 'string') {
+                copy.visit_end_time = parseTime(copy.visit_end_time);
+            }
+            return copy;
+        });
+
+        let updated = applyAction(normalisedItinerary, action, lockedItems, tripDays);
 
         updated = await buildTimeline(updated, tripConfig, lockedItems);
 
         const freeTime = detectFreeTime(updated, dayStartTime, dayEndTime, tripDays);
 
+        // Determine which days were affected by the action
+        let affectedDays = new Set();
+
+        if (action && (action.type === 'move' || action.type === 'reorder')) {
+            const originalItem = normalisedItinerary.find(i => i.item_code === action.itemCode);
+            if (originalItem) affectedDays.add(Number(originalItem.day_number));
+            if (action.newDay) affectedDays.add(Number(action.newDay));
+            else if (originalItem) affectedDays.add(Number(originalItem.day_number));
+        } else if (action && action.type === 'delete') {
+            const originalItem = normalisedItinerary.find(i => i.item_code === action.itemCode);
+            if (originalItem) affectedDays.add(Number(originalItem.day_number));
+        } else if (action && action.type === 'editTime') {
+            const originalItem = normalisedItinerary.find(i => i.item_code === action.itemCode);
+            if (originalItem) affectedDays.add(Number(originalItem.day_number));
+        } else if (action && action.type === 'add') {
+            if (action.targetDay) affectedDays.add(Number(action.targetDay));
+        }
+
+        // If no affected days could be determined, fallback to all days
+        if (affectedDays.size === 0) {
+            for (let d = 1; d <= tripDays; d++) affectedDays.add(d);
+        }
+
+        const filteredFreeTime = freeTime.filter(gap => affectedDays.has(Number(gap.day)));
+
         const usedIds = updated.map(i => i.attraction_id);
         const totalCost = updated.reduce((sum, i) => sum + Number(i.cost || 0), 0);
         const budgetRemaining = trip.budget - totalCost;
-        const suggestions = generateSuggestions(freeTime, attractions, usedIds, budgetRemaining);
+
+        // Provide trip start location and current day's attractions to the generator
+        const tripStartLocation = { lat: Number(trip.start_lat), lng: Number(trip.start_lng) };
+        const currentDayAttractionsForRanking = (freeTime && freeTime.length)
+            ? updated.filter(i => Number(i.day_number) === Number(freeTime[0].day))
+            : [];
+
+        const suggestions = generateSuggestions(filteredFreeTime, attractions, usedIds, budgetRemaining, tripStartLocation, currentDayAttractionsForRanking, experiences);
 
         const validation = validateItinerary(updated, trip, tripDays);
+
+        // Format times for the response (keep Date objects internally)
+        const formattedItinerary = updated.map(item => ({
+            ...item,
+            visit_start_time: formatTime(item.visit_start_time),
+            visit_end_time: formatTime(item.visit_end_time)
+        }));
+
+        const formattedFreeTime = filteredFreeTime.map(g => ({
+            ...g,
+            start: formatTime(g.start),
+            end: formatTime(g.end)
+        }));
 
         return {
             isValid: validation.isValid,
             errors: validation.errors,
-            recalculatedItinerary: updated,
-            freeTimeGaps: freeTime,
+            recalculatedItinerary: formattedItinerary,
+            freeTimeGaps: formattedFreeTime,
             suggestions,
-            totals: calculateTotals(updated)
+            totals: calculateTotals(formattedItinerary)
         };
     } catch (error) {
         console.error("RECALCULATE ERROR:", error);
