@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { getCategories } from "../../api/category.api.js";
@@ -12,6 +12,7 @@ export const TripPreferencePage = () => {
     const navigate = useNavigate();
     const { tripCode } = useParams();
     const { user } = useAuth();
+    const didLoadRef = useRef(false);
 
     const [trip, setTrip] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -21,6 +22,9 @@ export const TripPreferencePage = () => {
     const [error, setError] = useState("");
 
     useEffect(() => {
+        if (didLoadRef.current) return;
+        didLoadRef.current = true;
+
         const fetchData = async () => {
             if (!tripCode) {
                 setError("No trip code provided");
@@ -41,9 +45,27 @@ export const TripPreferencePage = () => {
                 const categoriesData = categoriesRes.data.data || categoriesRes.data;
                 setCategories(categoriesData);
 
+                let aiCategoryWeights = null;
+                const aiPrefsRaw = sessionStorage.getItem("aiPreferences");
+                if (aiPrefsRaw) {
+                    try {
+                        const aiPrefs = JSON.parse(aiPrefsRaw);
+                        aiCategoryWeights = aiPrefs.category_weights;
+                        sessionStorage.removeItem("aiPreferences");
+                    } catch (err) {
+                        console.error("Failed to parse AI preference data", err);
+                    }
+                }
+
                 const initialPrefs = {};
                 categoriesData.forEach(cat => {
-                    initialPrefs[cat.category_id] = 0.5;
+                    const catId = String(cat.category_id);
+                    const weight = aiCategoryWeights && aiCategoryWeights[catId] !== undefined
+                        ? Number(aiCategoryWeights[catId])
+                        : 0.5;
+                    initialPrefs[cat.category_id] = Number.isNaN(weight)
+                        ? 0.5
+                        : Math.min(1, Math.max(0, weight));
                 });
                 setPreferences(initialPrefs);
             } catch (err) {
@@ -240,7 +262,7 @@ export const TripPreferencePage = () => {
                                             min="0"
                                             max="1"
                                             step="0.1"
-                                            value={preferences[category.category_id] || 0.5}
+                                            value={preferences[category.category_id] ?? 0.5}
                                             onChange={(e) => handlePreferenceChange(category.category_id, e.target.value)}
                                             className="w-full h-2 appearance-none bg-transparent rounded-full relative z-10
                                                 [&::-webkit-slider-thumb]:appearance-none

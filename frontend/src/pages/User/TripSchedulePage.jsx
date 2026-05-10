@@ -52,6 +52,20 @@ export const TripSchedulePage = () => {
     }, [tripCode]);
 
     useEffect(() => {
+        const aiScheduleRaw = sessionStorage.getItem("aiSchedule");
+        if (!aiScheduleRaw) return;
+
+        try {
+            const aiSchedule = JSON.parse(aiScheduleRaw);
+            if (aiSchedule.day_start_time) setStartTime(aiSchedule.day_start_time);
+            if (aiSchedule.day_end_time) setEndTime(aiSchedule.day_end_time);
+            sessionStorage.removeItem("aiSchedule");
+        } catch (err) {
+            console.error("Failed to parse AI schedule data", err);
+        }
+    }, []);
+
+    useEffect(() => {
         if (startTime && endTime) {
             const start = new Date(`2000-01-01T${startTime}:00`);
             const end = new Date(`2000-01-01T${endTime}:00`);

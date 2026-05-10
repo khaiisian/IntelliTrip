@@ -49,3 +49,39 @@ exports.deleteTrip = async (req, res) => {
         return sendResponse(res, err);
     }
 };
+
+exports.parseUserPreferences = async (req, res) => {
+    try {
+        const data = await tripService.parseUserPreferences(req.params.code, req.body.userInput);
+        return sendResponse(res, {
+            data,
+            message: data.usedFallback
+                ? 'Preferences saved with neutral fallback weights'
+                : 'Preferences parsed and saved'
+        });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? 'Failed to parse preferences'
+        });
+    }
+};
+
+exports.parseFullTrip = async (req, res) => {
+    try {
+        const data = await tripService.parseFullTrip(req.body.userInput);
+        return sendResponse(res, {
+            data,
+            message: 'Full trip details parsed successfully'
+        });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? 'Failed to parse full trip'
+        });
+    }
+};

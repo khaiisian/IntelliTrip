@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { getTripsByUser, deleteTrip } from '../../api/trip.api.js';
+import { AIAssistantModal } from '../../components/AIAssistantModal.jsx';
 
 export const TripsPage = () => {
     const navigate = useNavigate();
@@ -15,6 +16,7 @@ export const TripsPage = () => {
     const [deletingId, setDeletingId] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [tripToDelete, setTripToDelete] = useState(null);
+    const [showAIModal, setShowAIModal] = useState(false);
 
     // Fetch trips on mount
     useEffect(() => {
@@ -172,16 +174,28 @@ export const TripsPage = () => {
                             </button>
                         )}
                     </div>
-                    <button
-                        onClick={() => navigate('/createTrip')}
-                        className="group relative px-6 py-3 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 whitespace-nowrap overflow-hidden"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <svg className="w-5 h-5 relative z-10 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span className="relative z-10">Create New Trip</span>
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={() => setShowAIModal(true)}
+                            className="group relative px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span className="relative z-10">Plan with AI</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/createTrip')}
+                            className="group relative px-6 py-3 bg-gradient-to-r from-[#F59E0B] to-amber-500 hover:from-amber-500 hover:to-[#F59E0B] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <svg className="w-5 h-5 relative z-10 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span className="relative z-10">Create New Trip</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Trips Grid */}
@@ -361,6 +375,10 @@ export const TripsPage = () => {
                         </div>
                     </div>
                 )}
+                <AIAssistantModal
+                    isOpen={showAIModal}
+                    onClose={() => setShowAIModal(false)}
+                />
             </div>
         </div>
     );

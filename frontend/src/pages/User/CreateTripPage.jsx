@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import LocationSearch from "../../components/LocationSearch.jsx";
@@ -26,6 +26,30 @@ export const CreateTripPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+
+    useEffect(() => {
+        const aiDataRaw = sessionStorage.getItem("aiTripData");
+        if (!aiDataRaw) return;
+
+        sessionStorage.removeItem("aiTripData");
+
+        try {
+            const aiData = JSON.parse(aiDataRaw);
+            if (aiData.trip) {
+                if (aiData.trip.trip_name) setTripName(aiData.trip.trip_name);
+                if (aiData.trip.start_date) setStartDate(aiData.trip.start_date);
+                if (aiData.trip.end_date) setEndDate(aiData.trip.end_date);
+                if (aiData.trip.budget) setBudget(aiData.trip.budget.toString());
+                if (aiData.trip.start_location_name) setStartPlaceName(aiData.trip.start_location_name);
+                if (aiData.trip.end_location_name) setEndPlaceName(aiData.trip.end_location_name);
+            }
+
+            sessionStorage.setItem("aiSchedule", JSON.stringify(aiData.schedule || {}));
+            sessionStorage.setItem("aiPreferences", JSON.stringify(aiData.preferences || {}));
+        } catch (err) {
+            console.error("Failed to parse AI trip data", err);
+        }
+    }, []);
 
     const validateForm = () => {
         const newErrors = {};

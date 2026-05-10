@@ -55,6 +55,20 @@ exports.getTripPreferences = async (tripId) => {
     });
 };
 
+exports.deleteTripPreferences = async (tripId) => {
+    return prisma.tbl_trip_preference.updateMany({
+        where: {
+            trip_id: Number(tripId),
+            is_deleted: false
+        },
+        data: { is_deleted: true }
+    });
+};
+
+exports.createTripPreference = async (data) => {
+    return prisma.tbl_trip_preference.create({ data });
+};
+
 exports.getTripSchedule = async (tripId) => {
     return prisma.trip_schedule.findFirst({
         where: {
