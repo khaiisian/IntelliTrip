@@ -6,6 +6,9 @@ export const generateItinerary = (code) =>
 export const saveItinerary = (code, payload) =>
     api.post(`/trips/${code}/itineraries`, payload);
 
+export const updateItinerary = (code, payload) =>
+    api.put(`/trips/${code}/itineraries`, payload);
+
 export const recalculateItinerary = (code, payload) =>
     api.post(`/trips/${code}/itineraries/recalculate`, payload);
 

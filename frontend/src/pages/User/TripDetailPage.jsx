@@ -109,7 +109,7 @@ export const TripDetailPage = () => {
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h2>
                     <p className="text-gray-500 mb-6">{error || 'Trip not found'}</p>
                     <button
-                        onClick={() => navigate('/trips')}
+                        onClick={() => navigate('/tripLists')}
                         className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                     >
                         Back to Trips
@@ -325,7 +325,7 @@ export const TripDetailPage = () => {
                         {/* Back to Trips Link */}
                         <div className="text-center pt-2">
                             <button
-                                onClick={() => navigate('/trips')}
+                                onClick={() => navigate('/tripLists')}
                                 className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-[#1E3A8A] transition-colors group"
                             >
                                 <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

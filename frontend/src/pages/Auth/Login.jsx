@@ -154,17 +154,18 @@ export default function Login() {
                                 </div>
                             </div>
 
-                            {/* Forgot Password Link */}
+                            {/* Forgot Password Action */}
                             <div className="flex justify-end">
-                                <Link
-                                    to="/forgot-password"
+                                <button
+                                    type="button"
+                                    onClick={() => alert('Password reset is not available yet. Please contact support.')}
                                     className="text-sm text-[#06B6D4] hover:text-[#1E3A8A] transition-colors font-medium flex items-center gap-1"
                                 >
                                     Forgot password?
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                     </svg>
-                                </Link>
+                                </button>
                             </div>
 
                             {/* Submit Button */}

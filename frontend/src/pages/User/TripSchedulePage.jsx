@@ -130,7 +130,7 @@ export const TripSchedulePage = () => {
                 actions={
                     <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
                         <button
-                            onClick={() => navigate("/trips")}
+                            onClick={() => navigate("/tripLists")}
                             className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                         >
                             Back to Trips
@@ -153,7 +153,7 @@ export const TripSchedulePage = () => {
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Trip Not Found</h2>
                     <p className="text-gray-500 mb-6">No trip found with code: {tripCode}</p>
                     <button
-                        onClick={() => navigate("/create-trip")}
+                        onClick={() => navigate("/createTrip")}
                         className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                     >
                         Create New Trip

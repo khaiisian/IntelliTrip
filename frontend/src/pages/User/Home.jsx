@@ -43,21 +43,21 @@ const Home = () => {
             description: 'Create personalized travel itineraries tailored to your preferences',
             icon: 'M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.553.894V17zM15.211 6.276a1 1 0 000-1.788l-4.764-2.382a1 1 0 00-.894 0L4.789 4.488a1 1 0 000 1.788l4.764 2.382a1 1 0 00.894 0l4.764-2.382zM4.447 8.342A1 1 0 003 9.236V15a1 1 0 00.553.894l4 2A1 1 0 009 17v-5.764a1 1 0 00-.553-.894l-4-2z',
             color: 'blue',
-            link: '/create-trip'
+            link: '/createTrip'
         },
         {
             title: 'View Itineraries',
             description: 'Access all your planned trips and schedules in one place',
             icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
             color: 'amber',
-            link: '/trips'
+            link: '/itineraries'
         },
         {
             title: 'Discover Places',
             description: 'Explore attractions and find your next adventure',
             icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z',
             color: 'cyan',
-            link: '/trips'
+            link: '/tripLists'
         }
     ];
 
@@ -152,7 +152,7 @@ const Home = () => {
                         <h2 className="text-2xl font-bold text-gray-900">Recent Trips</h2>
                         {trips.length > 0 && (
                             <button 
-                                onClick={() => navigate('/trips')}
+                                onClick={() => navigate('/tripLists')}
                                 className="text-[#1E3A8A] hover:text-[#F59E0B] font-medium text-sm flex items-center gap-1 transition-colors"
                             >
                                 View all trips
@@ -174,7 +174,7 @@ const Home = () => {
                             {recentTrips.map((trip) => (
                                 <div
                                     key={trip.trip_id}
-                                    onClick={() => navigate(`/trips/${trip.trip_id}`)}
+                                    onClick={() => navigate(`/tripDetail/${trip.code}`)}
                                     className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg cursor-pointer transition-all duration-300 group overflow-hidden"
                                 >
                                     {/* Trip Image Placeholder */}
@@ -229,7 +229,7 @@ const Home = () => {
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">No trips yet</h3>
                             <p className="text-gray-600 mb-6">Start planning your first adventure!</p>
                             <button
-                                onClick={() => navigate('/create-trip')}
+                                onClick={() => navigate('/createTrip')}
                                 className="inline-flex items-center px-6 py-3 bg-[#1E3A8A] text-white font-medium rounded-xl hover:bg-[#1E3A8A]/90 transition-colors"
                             >
                                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

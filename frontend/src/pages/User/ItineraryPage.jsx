@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { generateItinerary, saveItinerary, getSavedItinerary, recalculateItinerary } from '../../api/itinerary.api';
+import { generateItinerary, saveItinerary, updateItinerary, getSavedItinerary, recalculateItinerary } from '../../api/itinerary.api';
 import { getRouteGeometry } from '../../api/route.api';
 import jsPDF from 'jspdf';
 
@@ -580,7 +580,7 @@ export const TripItineraryPage = () => {
         setChangeDayFor(null);
     };
 
-    const handleSaveItinerary = async () => {
+    const handlePersistItinerary = async () => {
         if (!itineraryData) return;
 
         setSaving(true);
@@ -606,23 +606,31 @@ export const TripItineraryPage = () => {
                 return;
             }
 
+            const calculatedTotalCost = itinerary.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+            const summaryTotalCost = Number(itineraryData.summary?.totalCost);
+
             const payload = {
                 itinerary,
-                total_cost: Number(itineraryData.summary?.totalCost) || 0,
+                total_cost: Number.isNaN(summaryTotalCost) ? calculatedTotalCost : summaryTotalCost,
             };
 
-            await saveItinerary(tripCode, payload);
-            setSaveSuccess('Itinerary saved successfully.');
+            if (mode === 'generate') {
+                await saveItinerary(tripCode, payload);
+                setSaveSuccess('Itinerary saved successfully.');
 
             // ✅ Navigate to view mode after successful save
             // Optional: add a short delay to let the user see the success message
             setTimeout(() => {
                 navigate(`/trip/${tripCode}/itinerary?mode=view`, { state: { fromTripDetail: cameFromTripDetail } });
             }, 1500); // 1.5 seconds delay – adjust as needed
+            } else {
+                await updateItinerary(tripCode, payload);
+                setSaveSuccess('Itinerary updated successfully.');
+            }
 
         } catch (err) {
             console.error('Error saving itinerary:', err);
-            setSaveError(err?.response?.data?.message || 'Failed to save itinerary');
+            setSaveError(err?.response?.data?.message || `Failed to ${mode === 'generate' ? 'save' : 'update'} itinerary`);
         } finally {
             setSaving(false);
         }
@@ -847,7 +855,7 @@ const handleExportPDF = async () => {
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
                     <p className="text-gray-500 mb-6">{error || 'No itinerary data available'}</p>
                     <button
-                        onClick={() => navigate(`/trip/${tripCode}`)}
+                        onClick={() => navigate(`/tripDetail/${tripCode}`)}
                         className="px-6 py-3 bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white rounded-xl hover:shadow-lg transition-all duration-200 font-semibold"
                     >
                         Back to Trip
@@ -1409,11 +1417,11 @@ const handleExportPDF = async () => {
 
                 {/* Buttons at bottom – Save Itinerary + Export PDF + Back to Trip Details */}
                 <div className="mt-10 flex justify-end gap-4">
-                    {mode === 'generate' && (
+                    {(mode === 'generate' || mode === 'view') && (
                         <button
-                            onClick={handleSaveItinerary}
+                            onClick={handlePersistItinerary}
                             disabled={saving || !isPreviewValid}
-                            title={!isPreviewValid ? 'Resolve preview validation issues before saving' : ''}
+                            title={!isPreviewValid ? `Resolve preview validation issues before ${mode === 'generate' ? 'saving' : 'updating'}` : ''}
                             className="relative group px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-[#10B981] to-[#059669] text-white hover:shadow-lg transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden"
                         >
                             <span className="relative z-10 flex items-center gap-2">
@@ -1423,14 +1431,14 @@ const handleExportPDF = async () => {
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                                         </svg>
-                                        Saving...
+                                        {mode === 'generate' ? 'Saving...' : 'Updating...'}
                                     </>
                                 ) : (
                                     <>
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                                         </svg>
-                                        Save Itinerary
+                                        {mode === 'generate' ? 'Save Itinerary' : 'Update Itinerary'}
                                     </>
                                 )}
                             </span>
@@ -1478,7 +1486,7 @@ const handleExportPDF = async () => {
                         </button>
                     ) : (
                         <button
-                            onClick={() => navigate('/tripLists')}
+                            onClick={() => navigate('/itineraries')}
                             className="group relative px-6 py-3 bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white font-semibold rounded-xl hover:shadow-xl transition-all duration-300 flex items-center gap-2 overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

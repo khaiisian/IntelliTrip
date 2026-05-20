@@ -8,6 +8,8 @@ import MainLayout from "../components/layouts/MainLayout.jsx";
 import AdminLayout from "../components/layouts/AdminLayout.jsx";
 import DashboardPage from "../pages/Admin/Dashboard/DashboardPage.jsx";
 import {CreateAttractionPage} from "../pages/Admin/Attractions/CreateAttractionPage.jsx";
+import {AttractionListPage} from "../pages/Admin/Attractions/AttractionListPage.jsx";
+import {EditAttractionPage} from "../pages/Admin/Attractions/EditAttractionPage.jsx";
 import {CreateTripPage} from "../pages/User/CreateTripPage.jsx";
 import {TripSchedulePage} from "../pages/User/TripSchedulePage.jsx";
 import {TripPreferencePage} from "../pages/User/TripPreferencePage.jsx";
@@ -15,6 +17,7 @@ import {TripItineraryPage} from "../pages/User/ItineraryPage.jsx";
 import {ItineraryListingPage} from "../pages/User/ItineraryListingPage.jsx";
 import {TripsPage} from "../pages/User/TripListPage.jsx";
 import {TripDetailPage} from "../pages/User/TripDetailPage.jsx";
+import {ProfilePage} from "../pages/User/ProfilePage.jsx";
 
 const AppRoutes = () => {
     return (
@@ -42,6 +45,7 @@ const AppRoutes = () => {
                 <Route path="/tripPreference/:tripCode" element={<TripPreferencePage />}/>
                 <Route path="/trip/:tripCode/itinerary" element={<TripItineraryPage />}/>
                 <Route path="/itineraries" element={<ItineraryListingPage />}/>
+                <Route path="/profile" element={<ProfilePage />}/>
             </Route>
 
             {/* Admin routes - only accessible by users with role 'admin' */}
@@ -54,7 +58,9 @@ const AppRoutes = () => {
             >
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
+                <Route path="/admin/attractions" element={<AttractionListPage />} />
                 <Route path="/admin/attractions/create" element={<CreateAttractionPage />} />
+                <Route path="/admin/attractions/:code/edit" element={<EditAttractionPage />} />
             </Route>
 
             {/* Catch all - 404 route */}

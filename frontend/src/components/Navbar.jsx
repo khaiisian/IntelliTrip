@@ -127,49 +127,29 @@ export const Navbar = () => {
 
                     {/* Right side - User menu */}
                     {isAuthenticated && user && (
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setShowDropdown(!showDropdown)}
-                                className="flex items-center space-x-3 group focus:outline-none"
-                            >
-                                {/* User avatar with status indicator */}
-                                <div className="relative">
-                                    <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center ring-2 ring-offset-2 ring-[#1E3A8A]/20 group-hover:ring-[#1E3A8A] transition-all duration-300">
-                                        <span className="text-white font-semibold text-sm lg:text-base">
-                                            {user.user_name ? user.user_name.charAt(0).toUpperCase() : 'U'}
-                                        </span>
-                                    </div>
-                                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
-                                </div>
-
-                                {/* User info - hidden on mobile */}
-                                <div className="hidden lg:block text-left">
-                                    <p className="text-sm font-semibold text-gray-700">
-                                        {user.user_name || 'User'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {user.email || 'user@example.com'}
-                                    </p>
-                                </div>
-
-                                {/* Chevron icon with animation */}
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className={`h-5 w-5 text-gray-400 transition-all duration-300 ${
-                                        showDropdown ? 'rotate-180' : 'group-hover:text-[#1E3A8A]'
-                                    }`}
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
+                        <div className="flex items-center gap-3">
+                            
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setShowDropdown(!showDropdown)}
+                                    className="flex items-center space-x-3 group focus:outline-none"
                                 >
-                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                            </button>
+                                    {/* User avatar with status indicator */}
+                                    <div className="relative">
+                                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center ring-2 ring-offset-2 ring-[#1E3A8A]/20 group-hover:ring-[#1E3A8A] transition-all duration-300 overflow-hidden">
+                                            {user.profile_image ? (
+                                                <img src={user.profile_image} alt={user.user_name || 'User'} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-white font-semibold text-sm lg:text-base">
+                                                    {user.user_name ? user.user_name.charAt(0).toUpperCase() : 'U'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
+                                    </div>
 
-                            {/* Premium dropdown menu */}
-                            {showDropdown && (
-                                <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 transform origin-top-right transition-all duration-200 animate-fadeIn">
-                                    {/* User info header */}
-                                    <div className="px-4 py-3 border-b border-gray-100">
+                                    {/* User info - hidden on mobile */}
+                                    <div className="hidden lg:block text-left">
                                         <p className="text-sm font-semibold text-gray-800">
                                             {user.user_name || 'User'}
                                         </p>
@@ -178,62 +158,106 @@ export const Navbar = () => {
                                         </p>
                                     </div>
 
-                                    {/* Mobile-only navigation items */}
-                                    <div className="md:hidden px-2 py-2 border-b border-gray-100">
-                                        <NavLink
-                                            to="/"
-                                            onClick={() => setShowDropdown(false)}
-                                            className={({ isActive }) => `
-                                                block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200
-                                                ${isActive
-                                                ? 'bg-[#1E3A8A] text-white'
-                                                : 'text-gray-700 hover:bg-gray-50 hover:text-[#1E3A8A]'
-                                            }
-                                            `}
-                                        >
-                                            Dashboard
-                                        </NavLink>
-                                        <NavLink
-                                            to="/itineraries"
-                                            onClick={() => setShowDropdown(false)}
-                                            className={({ isActive }) => `
-                                                block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200
-                                                ${isActive
-                                                ? 'bg-[#1E3A8A] text-white'
-                                                : 'text-gray-700 hover:bg-gray-50 hover:text-[#1E3A8A]'
-                                            }
-                                            `}
-                                        >
-                                            My Itineraries
-                                        </NavLink>
-                                    </div>
+                                    {/* Chevron icon with animation */}
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className={`h-5 w-5 text-gray-400 transition-all duration-300 ${
+                                            showDropdown ? 'rotate-180' : 'group-hover:text-[#1E3A8A]'
+                                        }`}
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                    >
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
 
-                                    {/* Logout button with icon */}
-                                    <div className="px-2 py-2">
-                                        <button
-                                            onClick={handleLogout}
-                                            className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center space-x-3 transition-all duration-200 group"
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                                                <svg
-                                                    className="w-4 h-4 text-red-500"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={2}
-                                                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <span className="font-medium">Sign out</span>
-                                        </button>
+                                {/* Premium dropdown menu */}
+                                {showDropdown && (
+                                    <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl py-2 border border-gray-100 transform origin-top-right transition-all duration-200 animate-fadeIn">
+                                        {/* User info header */}
+                                        <div className="px-4 py-3 border-b border-gray-100">
+                                            <p className="text-sm font-semibold text-gray-800">
+                                                {user.user_name || 'User'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {user.email || 'user@example.com'}
+                                            </p>
+                                        </div>
+
+                                        {/* Mobile-only navigation items */}
+                                        <div className="md:hidden px-2 py-2 border-b border-gray-100">
+                                            <NavLink
+                                                to="/"
+                                                onClick={() => setShowDropdown(false)}
+                                                className={({ isActive }) => `
+                                                    block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200
+                                                    ${isActive
+                                                    ? 'bg-[#1E3A8A] text-white'
+                                                    : 'text-gray-700 hover:bg-gray-50 hover:text-[#1E3A8A]'
+                                                }
+                                                `}
+                                            >
+                                                Dashboard
+                                            </NavLink>
+                                            <NavLink
+                                                to="/itineraries"
+                                                onClick={() => setShowDropdown(false)}
+                                                className={({ isActive }) => `
+                                                    block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200
+                                                    ${isActive
+                                                    ? 'bg-[#1E3A8A] text-white'
+                                                    : 'text-gray-700 hover:bg-gray-50 hover:text-[#1E3A8A]'
+                                                }
+                                                `}
+                                            >
+                                                My Itineraries
+                                            </NavLink>
+                                        </div>
+
+                                        <div className="px-2 py-2 border-b border-gray-100">
+                                            <button
+                                                onClick={() => {
+                                                    setShowDropdown(false);
+                                                    navigate('/profile');
+                                                }}
+                                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-[#1E3A8A]/5 hover:text-[#1E3A8A] flex items-center space-x-3 transition-all duration-200 group"
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-[#1E3A8A]/10 flex items-center justify-center group-hover:bg-[#1E3A8A]/15 transition-colors">
+                                                    <svg className="w-4 h-4 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1118.879 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                </div>
+                                                <span className="font-medium">Profile</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Logout button with icon */}
+                                        <div className="px-2 py-2">
+                                            <button
+                                                onClick={handleLogout}
+                                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center space-x-3 transition-all duration-200 group"
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                                                    <svg
+                                                        className="w-4 h-4 text-red-500"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={2}
+                                                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                                <span className="font-medium">Sign out</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
