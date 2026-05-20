@@ -16,6 +16,37 @@ exports.create = async ({ trip_id, total_cost, itinerary_code, items }) => {
     });
 };
 
+exports.updateLatestByTripId = async ({ trip_id, total_cost, items }) => {
+    return prisma.$transaction(async (tx) => {
+        const itinerary = await tx.tbl_itinerary.findFirst({
+            where: {
+                trip_id: Number(trip_id),
+                is_deleted: false
+            },
+            orderBy: { generated_at: 'desc' }
+        });
+
+        if (!itinerary) return null;
+
+        await tx.tbl_itinerary_item.deleteMany({
+            where: { itinerary_id: itinerary.itinerary_id }
+        });
+
+        return tx.tbl_itinerary.update({
+            where: { itinerary_id: itinerary.itinerary_id },
+            data: {
+                total_cost,
+                tbl_itinerary_item: {
+                    create: items
+                }
+            },
+            include: {
+                tbl_itinerary_item: true
+            }
+        });
+    });
+};
+
 exports.findByTripId = async (tripId) => {
     return prisma.tbl_itinerary.findMany({
         where: { trip_id: Number(tripId) },

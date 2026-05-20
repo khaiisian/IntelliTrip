@@ -148,8 +148,33 @@ exports.updateUser = async (code, payload) => {
             throw { status: false, statusCode: 409, message: 'Email already in use' };
     }
 
+    if (request.user_name !== undefined) {
+        request.user_name = request.user_name.trim();
+        if (!request.user_name)
+            throw { status: false, statusCode: 400, message: 'User name is required' };
+    }
+
+    if (request.password !== undefined && request.password !== '') {
+        if (request.password.length < 6)
+            throw { status: false, statusCode: 400, message: 'Password must be at least 6 characters' };
+
+        request.password = await bcrypt.hash(request.password, 10);
+    } else {
+        delete request.password;
+    }
+
+    if (request.profile_image !== undefined && request.profile_image !== null) {
+        request.profile_image = request.profile_image.trim();
+        if (request.profile_image.length > 255)
+            throw { status: false, statusCode: 400, message: 'Profile image URL must be 255 characters or less' };
+    }
+
     const user = await userRepo.update(code, request);
     return new UserResponse(user);
+};
+
+exports.updateCurrentUser = async (userCode, payload) => {
+    return exports.updateUser(userCode, payload);
 };
 
 exports.deleteUser = async (code) => {

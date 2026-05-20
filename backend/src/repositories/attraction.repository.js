@@ -3,10 +3,10 @@ const prisma = require('../prisma');
 exports.findAll = async () => {
     return prisma.tbl_attraction.findMany({
         where: {
-            is_deleted: false,
-            is_test: true
+            is_deleted: false
         },
-        include: { tbl_category: true }
+        include: { tbl_category: true },
+        orderBy: { created_at: 'desc' }
     });
 };
 
@@ -21,13 +21,17 @@ exports.findByCode = async (code) => {
 };
 
 exports.create = async (data) => {
-    return prisma.tbl_attraction.create({ data });
+    return prisma.tbl_attraction.create({
+        data,
+        include: { tbl_category: true }
+    });
 };
 
 exports.update = async (code, data) => {
     return prisma.tbl_attraction.update({
         where: { attraction_code: code },
-        data
+        data,
+        include: { tbl_category: true }
     });
 };
 

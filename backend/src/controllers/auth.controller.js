@@ -89,6 +89,23 @@ exports.getMe = async (req, res) => {
     }
 };
 
+exports.updateProfile = async (req, res) => {
+    try {
+        const user = await userService.updateCurrentUser(req.user.userCode, req.body);
+
+        return sendResponse(res, {
+            data: user,
+            message: "Profile updated successfully"
+        });
+    } catch (err) {
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? "Failed to update profile"
+        });
+    }
+};
+
 exports.logoutUser = async (req, res) => {
     try {
         res.clearCookie("refreshToken", {

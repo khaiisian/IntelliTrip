@@ -5,6 +5,7 @@ const controller = require('../controllers/itinerary.controller');
 router.post('/trips/:code/generate-itinerary', controller.generateItinerary);
 router.post('/trips/:code/itineraries/recalculate', controller.recalculateItinerary);
 router.post('/trips/:code/itineraries', controller.saveItinerary);
+router.put('/trips/:code/itineraries', controller.updateItinerary);
 router.get('/trips/:code/itineraries', controller.getSavedItinerary);
 router.get('/users/:code/itineraries', controller.getItinerariesByUserCode);
 

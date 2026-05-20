@@ -8,7 +8,7 @@ app.use(cors({
     origin: "http://localhost:5173", // your frontend URL
     credentials: true,               // allow cookies to be sent
 }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 const userRoutes = require('./routes/user.routes');

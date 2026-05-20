@@ -33,7 +33,7 @@ exports.registerUser = async (payload) => {
         const refreshToken = generateRefreshToken(user);
 
         return {
-            token: accessToken,
+            accessToken,
             refreshToken,
             user: new UserResponse(user)
         };

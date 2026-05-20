@@ -17,9 +17,10 @@ class RegisterUserRequest {
 }
 
 class UpdateUserRequest {
-    constructor({ user_name, email, profile_image }) {
+    constructor({ user_name, email, password, profile_image }) {
         this.user_name = user_name;
         this.email = email;
+        this.password = password;
         this.profile_image = profile_image;
     }
 }

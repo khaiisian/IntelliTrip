@@ -81,3 +81,20 @@ exports.saveItinerary = async (req, res) => {
         });
     }
 };
+
+exports.updateItinerary = async (req, res) => {
+    try {
+        const data = await itineraryService.updateItinerary(req.params.code, req.body);
+
+        return sendResponse(res, {
+            data,
+            message: "Itinerary updated successfully"
+        });
+    } catch (err) {
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? 'Failed to update itinerary'
+        });
+    }
+};

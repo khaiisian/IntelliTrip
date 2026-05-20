@@ -400,18 +400,11 @@ function calculateTotals(scheduledItems) {
     };
 }
 
-exports.saveItinerary = async (tripCode, payload) => {
-    const request = new CreateItineraryRequest(payload);
-    const trip = await tripRepo.findByCode(tripCode);
-    if (!trip) throw { statusCode: 404, message: 'Trip not found' };
-    if (!request.itinerary || request.itinerary.length === 0) {
-        throw { statusCode: 400, message: 'Itinerary items are required' };
-    }
-
+async function buildItineraryItems(request) {
     const startingItemCode = await generateCode('tbl_itinerary_item', 'item_code', 'ITEM');
     const initialItemNumber = Number(startingItemCode.match(/\d+$/)?.[0] ?? 0);
 
-    const items = request.itinerary.map((item, index) => {
+    return request.itinerary.map((item, index) => {
         if (!item.attraction_id) {
             throw { statusCode: 400, message: `Itinerary item ${index + 1} is missing attraction_id` };
         }
@@ -435,10 +428,24 @@ exports.saveItinerary = async (tripCode, payload) => {
             final_score: Number(item.final_score || 0)
         };
     });
+}
 
-    const totalCost = request.total_cost !== null && !Number.isNaN(request.total_cost)
+function getItineraryTotalCost(request) {
+    return request.total_cost !== null && !Number.isNaN(request.total_cost)
         ? request.total_cost
         : request.itinerary.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+}
+
+exports.saveItinerary = async (tripCode, payload) => {
+    const request = new CreateItineraryRequest(payload);
+    const trip = await tripRepo.findByCode(tripCode);
+    if (!trip) throw { statusCode: 404, message: 'Trip not found' };
+    if (!request.itinerary || request.itinerary.length === 0) {
+        throw { statusCode: 400, message: 'Itinerary items are required' };
+    }
+
+    const items = await buildItineraryItems(request);
+    const totalCost = getItineraryTotalCost(request);
 
     const itineraryCode = await generateCode('tbl_itinerary', 'itinerary_code', 'ITIN');
 
@@ -448,6 +455,30 @@ exports.saveItinerary = async (tripCode, payload) => {
         itinerary_code: itineraryCode,
         items
     });
+
+    return new ItineraryResponse(itinerary);
+};
+
+exports.updateItinerary = async (tripCode, payload) => {
+    const request = new CreateItineraryRequest(payload);
+    const trip = await tripRepo.findByCode(tripCode);
+    if (!trip) throw { statusCode: 404, message: 'Trip not found' };
+    if (!request.itinerary || request.itinerary.length === 0) {
+        throw { statusCode: 400, message: 'Itinerary items are required' };
+    }
+
+    const items = await buildItineraryItems(request);
+    const totalCost = getItineraryTotalCost(request);
+
+    const itinerary = await itineraryRepo.updateLatestByTripId({
+        trip_id: trip.trip_id,
+        total_cost: Number(totalCost.toFixed(2)),
+        items
+    });
+
+    if (!itinerary) {
+        throw { statusCode: 404, message: 'No saved itinerary found for this trip' };
+    }
 
     return new ItineraryResponse(itinerary);
 };
