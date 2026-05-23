@@ -53,7 +53,8 @@ export const Navbar = () => {
                             className="flex items-center space-x-2 cursor-pointer group"
                         >
                             <div className="relative">
-                                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] rounded-lg transform group-hover:rotate-6 transition-all duration-300"></div>
+                                {/* Single solid blue background instead of gradient */}
+                                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-[#1E3A8A] rounded-lg transform group-hover:rotate-6 transition-all duration-300"></div>
                                 <div className="absolute -top-1 -right-1 w-2 h-2 lg:w-3 lg:h-3 bg-[#F59E0B] rounded-full border-2 border-white"></div>
                             </div>
                             <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] bg-clip-text text-transparent">
@@ -69,7 +70,7 @@ export const Navbar = () => {
                                     relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                                     ${isActive
                                     ? 'text-[#1E3A8A]'
-                                    : 'text-gray-600 hover:text-[#1E3A8A]'
+                                    : 'text-gray-700 hover:text-[#1E3A8A]'
                                 }
                                 `}
                             >
@@ -77,7 +78,8 @@ export const Navbar = () => {
                                     <>
                                         Dashboard
                                         {isActive && (
-                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
+                                            // Solid blue underline instead of gradient
+                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#1E3A8A] rounded-full"></span>
                                         )}
                                     </>
                                 )}
@@ -89,7 +91,7 @@ export const Navbar = () => {
                                     relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                                     ${isActive
                                     ? 'text-[#1E3A8A]'
-                                    : 'text-gray-600 hover:text-[#1E3A8A]'
+                                    : 'text-gray-700 hover:text-[#1E3A8A]'
                                 }
                                 `}
                             >
@@ -97,7 +99,7 @@ export const Navbar = () => {
                                     <>
                                         TripLists
                                         {isActive && (
-                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
+                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#1E3A8A] rounded-full"></span>
                                         )}
                                     </>
                                 )}
@@ -109,7 +111,7 @@ export const Navbar = () => {
                                     relative px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
                                     ${isActive
                                     ? 'text-[#1E3A8A]'
-                                    : 'text-gray-600 hover:text-[#1E3A8A]'
+                                    : 'text-gray-700 hover:text-[#1E3A8A]'
                                 }
                                 `}
                             >
@@ -117,7 +119,7 @@ export const Navbar = () => {
                                     <>
                                         My Itineraries
                                         {isActive && (
-                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-[#1E3A8A] to-[#06B6D4] rounded-full"></span>
+                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#1E3A8A] rounded-full"></span>
                                         )}
                                     </>
                                 )}
@@ -136,7 +138,8 @@ export const Navbar = () => {
                                 >
                                     {/* User avatar with status indicator */}
                                     <div className="relative">
-                                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] flex items-center justify-center ring-2 ring-offset-2 ring-[#1E3A8A]/20 group-hover:ring-[#1E3A8A] transition-all duration-300 overflow-hidden">
+                                        {/* Solid blue avatar background */}
+                                        <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[#1E3A8A] flex items-center justify-center ring-2 ring-offset-2 ring-[#1E3A8A]/20 group-hover:ring-[#1E3A8A] transition-all duration-300 overflow-hidden">
                                             {user.profile_image ? (
                                                 <img src={user.profile_image} alt={user.user_name || 'User'} className="w-full h-full object-cover" />
                                             ) : (
@@ -288,19 +291,3 @@ export const Navbar = () => {
         </nav>
     );
 };
-
-// const styles = `
-//     @keyframes fadeIn {
-//         from {
-//             opacity: 0;
-//             transform: scale(0.95);
-//         }
-//         to {
-//             opacity: 1;
-//             transform: scale(1);
-//         }
-//     }
-//     .animate-fadeIn {
-//         animation: fadeIn 0.2s ease-out;
-//     }
-// `;

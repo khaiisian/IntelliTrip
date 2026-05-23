@@ -1,5 +1,6 @@
 class AttractionResponse {
     constructor(entity) {
+        this.id = entity.attraction_id;
         this.code = entity.attraction_code;
         this.name = entity.attraction_name;
         this.latitude = entity.latitude;

@@ -39,6 +39,7 @@ model tbl_attraction_experience {
   experience_score_weight Float          @db.Float
   time_bonus_multiplier   Float          @default(1) @db.Float
   is_deleted              Boolean        @default(false)
+  description             String?        @db.VarChar(1000)
   tbl_attraction          tbl_attraction @relation(fields: [attraction_id], references: [attraction_id], onUpdate: Restrict, map: "tbl_attraction_experience_ibfk_1")
 
   @@index([attraction_id], map: "attraction_id")

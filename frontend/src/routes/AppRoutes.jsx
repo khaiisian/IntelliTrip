@@ -10,6 +10,10 @@ import DashboardPage from "../pages/Admin/Dashboard/DashboardPage.jsx";
 import {CreateAttractionPage} from "../pages/Admin/Attractions/CreateAttractionPage.jsx";
 import {AttractionListPage} from "../pages/Admin/Attractions/AttractionListPage.jsx";
 import {EditAttractionPage} from "../pages/Admin/Attractions/EditAttractionPage.jsx";
+import ExperienceListPage from "../pages/Admin/Attractions/ExperienceListPage.jsx";
+import {CategoryListPage} from "../pages/Admin/Categories/CategoryListPage.jsx";
+import {CreateCategoryPage} from "../pages/Admin/Categories/CreateCategoryPage.jsx";
+import {EditCategoryPage} from "../pages/Admin/Categories/EditCategoryPage.jsx";
 import {CreateTripPage} from "../pages/User/CreateTripPage.jsx";
 import {TripSchedulePage} from "../pages/User/TripSchedulePage.jsx";
 import {TripPreferencePage} from "../pages/User/TripPreferencePage.jsx";
@@ -61,6 +65,10 @@ const AppRoutes = () => {
                 <Route path="/admin/attractions" element={<AttractionListPage />} />
                 <Route path="/admin/attractions/create" element={<CreateAttractionPage />} />
                 <Route path="/admin/attractions/:code/edit" element={<EditAttractionPage />} />
+                <Route path="/admin/attractions/:id/experiences" element={<ExperienceListPage />} />
+                <Route path="/admin/categories" element={<CategoryListPage />} />
+                <Route path="/admin/categories/create" element={<CreateCategoryPage />} />
+                <Route path="/admin/categories/:code/edit" element={<EditCategoryPage />} />
             </Route>
 
             {/* Catch all - 404 route */}

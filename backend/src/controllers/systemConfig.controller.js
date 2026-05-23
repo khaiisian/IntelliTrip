@@ -86,3 +86,63 @@ exports.deleteConfig = async (req, res) => {
         });
     }
 };
+
+exports.getMetrics = async (req, res) => {
+    try {
+        const svc = require('../services/systemConfig.service');
+        const data = await svc.getDashboardMetrics();
+        return sendResponse(res, { data });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, {
+            status: err.status ?? false,
+            statusCode: err.statusCode ?? 500,
+            message: err.message ?? 'Failed to fetch metrics'
+        });
+    }
+};
+
+exports.getTripsOverTime = async (req, res) => {
+    try {
+        const svc = require('../services/systemConfig.service');
+        const data = await svc.getTripsOverTime(req.query.period || 'daily');
+        return sendResponse(res, { data });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, { status: err.status ?? false, statusCode: err.statusCode ?? 500, message: err.message ?? 'Failed' });
+    }
+};
+
+exports.getVisitsByCategory = async (req, res) => {
+    try {
+        const svc = require('../services/systemConfig.service');
+        const data = await svc.getVisitsByCategory();
+        return sendResponse(res, { data });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, { status: err.status ?? false, statusCode: err.statusCode ?? 500, message: err.message ?? 'Failed' });
+    }
+};
+
+exports.getTopAttractions = async (req, res) => {
+    try {
+        const svc = require('../services/systemConfig.service');
+        const limit = Number(req.query.limit) || 10;
+        const data = await svc.getTopAttractions(limit);
+        return sendResponse(res, { data });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, { status: err.status ?? false, statusCode: err.statusCode ?? 500, message: err.message ?? 'Failed' });
+    }
+};
+
+exports.getExperienceUsage = async (req, res) => {
+    try {
+        const svc = require('../services/systemConfig.service');
+        const data = await svc.getExperienceUsage();
+        return sendResponse(res, { data });
+    } catch (err) {
+        console.error(err);
+        return sendResponse(res, { status: err.status ?? false, statusCode: err.statusCode ?? 500, message: err.message ?? 'Failed' });
+    }
+};

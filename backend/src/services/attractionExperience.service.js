@@ -24,8 +24,13 @@ exports.createExperience = async (payload) => {
     if (!req.attraction_id) throw { status: false, statusCode: 400, message: 'Attraction is required' };
     if (!req.experience_type?.trim()) throw { status: false, statusCode: 400, message: 'Experience type is required' };
     if (req.experience_score_weight < 0) throw { status: false, statusCode: 400, message: 'Score weight cannot be negative' };
+
     if (new Date(req.best_time_start) >= new Date(req.best_time_end))
-        throw { status: false, statusCode: 400, message: 'Best time start must be before end' };
+        throw {
+            status: false,
+            statusCode: 400,
+            message: `Best time start (${req.best_time_start}) must be before end (${req.best_time_end})`
+        };
 
     req.experience_code = await generateCode(
         'tbl_attraction_experience',
@@ -49,9 +54,17 @@ exports.updateExperience = async (code, payload) => {
     if (req.experience_score_weight !== undefined && req.experience_score_weight < 0)
         throw { status: false, statusCode: 400, message: 'Score weight cannot be negative' };
 
-    if (req.best_time_start && req.best_time_end &&
-        new Date(req.best_time_start) >= new Date(req.best_time_end))
-        throw { status: false, statusCode: 400, message: 'Best time start must be before end' };
+    if (
+        req.best_time_start &&
+        req.best_time_end &&
+        new Date(req.best_time_start) >= new Date(req.best_time_end)
+    ) {
+        throw {
+            status: false,
+            statusCode: 400,
+            message: `Best time start (${req.best_time_start}) must be before best time end (${req.best_time_end})....`
+        };
+    }
 
     const exp = await expRepo.update(code, req);
     return new AttractionExperienceResponse(exp);
