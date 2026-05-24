@@ -25,7 +25,7 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        if (originalRequest.url.includes("/auth/refresh")) {
+        if (originalRequest.url.includes("/api/auth/refresh") || originalRequest.url.includes("/auth/refresh")) {
             localStorage.removeItem("token");
             return Promise.reject(error);
         }
@@ -34,7 +34,7 @@ api.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                const res = await api.post("/auth/refresh");
+                const res = await api.post("/api/auth/refresh");
                 const newToken = res.data.data.token;
 
                 localStorage.setItem("token", newToken);

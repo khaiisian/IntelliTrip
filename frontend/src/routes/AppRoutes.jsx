@@ -22,6 +22,9 @@ import {ItineraryListingPage} from "../pages/User/ItineraryListingPage.jsx";
 import {TripsPage} from "../pages/User/TripListPage.jsx";
 import {TripDetailPage} from "../pages/User/TripDetailPage.jsx";
 import {ProfilePage} from "../pages/User/ProfilePage.jsx";
+import {UserListPage} from "../pages/Admin/Users/UserListPage.jsx";
+import {CreateUserPage} from "../pages/Admin/Users/CreateUserPage.jsx";
+import {EditUserPage} from "../pages/Admin/Users/EditUserPage.jsx";
 
 const AppRoutes = () => {
     return (
@@ -69,6 +72,9 @@ const AppRoutes = () => {
                 <Route path="/admin/categories" element={<CategoryListPage />} />
                 <Route path="/admin/categories/create" element={<CreateCategoryPage />} />
                 <Route path="/admin/categories/:code/edit" element={<EditCategoryPage />} />
+                <Route path="/admin/users" element={<UserListPage />} />
+                <Route path="/admin/users/create" element={<CreateUserPage />} />
+                <Route path="/admin/users/:code/edit" element={<EditUserPage />} />
             </Route>
 
             {/* Catch all - 404 route */}
