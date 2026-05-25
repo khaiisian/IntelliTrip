@@ -15,9 +15,27 @@ L.Icon.Default.mergeOptions({
 const LocationMarker = ({ setLat, setLng, setPlaceName }) => {
     const [position, setPosition] = useState(null);
 
+    // Bagan bounding box
+    const isInsideBagan = (lat, lng) => {
+        const minLat = 20.95;
+        const maxLat = 21.30;
+        const minLng = 94.70;
+        const maxLng = 95.05;
+        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+    };
+
     useMapEvents({
         click: async (e) => {
             const { lat, lng } = e.latlng;
+
+            // Prevent selecting locations outside Bagan
+            if (!isInsideBagan(lat, lng)) {
+                alert('Please select a location inside Bagan.');
+                setPosition(null);
+                setPlaceName('');
+                return;
+            }
+
             setPosition([lat, lng]);
             setLat(lat);
             setLng(lng);

@@ -213,8 +213,30 @@ exports.parseFullTrip = async (userInput) => {
         throw { statusCode: 500, message: 'AI parsing failed' };
     }
 
-    const startDate = normalizeDate(parsed.trip?.start_date);
-    const endDate = normalizeDate(parsed.trip?.end_date);
+    const startDateRaw = normalizeDate(parsed.trip?.start_date);
+    const endDateRaw = normalizeDate(parsed.trip?.end_date);
+
+    // If the user didn't include an explicit 4-digit year in the input,
+    // prefer the current year for parsed dates that the model returned with
+    // an older year (models may hallucinate a past year when the user
+    // specifies only month/day like "May 10"). This avoids surprising
+    // behavior where dates land in 2024 while current year is 2026.
+    const currentYear = new Date().getFullYear();
+    const userProvidedYear = /\b20\d{2}\b/.test(userInput);
+
+    const fixYearIfNeeded = (iso) => {
+        if (!iso) return iso;
+        if (userProvidedYear) return iso; // respect explicit years
+        const d = new Date(iso);
+        if (d.getFullYear() < currentYear) {
+            d.setFullYear(currentYear);
+            return d.toISOString().slice(0, 10);
+        }
+        return iso;
+    };
+
+    const startDate = fixYearIfNeeded(startDateRaw);
+    const endDate = fixYearIfNeeded(endDateRaw);
     const hasValidDateRange = startDate && endDate && new Date(startDate) <= new Date(endDate);
 
     const result = {

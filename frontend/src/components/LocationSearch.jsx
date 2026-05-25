@@ -132,8 +132,11 @@ const LocationSearch = ({
         if (inputValue.length < 3) return [];
 
         try {
+            // Restrict search to Bagan by adding a viewbox and bounded=1
+            // Viewbox format: lon_min,lat_max,lon_max,lat_min
+            const viewbox = '94.70,21.30,95.05,20.95';
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(inputValue)}&limit=5`
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(inputValue)}&limit=5&viewbox=${viewbox}&bounded=1`
             );
             const data = await response.json();
 
@@ -150,8 +153,25 @@ const LocationSearch = ({
         }
     };
 
+    // Helper to check if coordinates are inside the Bagan bounding box
+    const isInsideBagan = (latVal, lngVal) => {
+        const lat = parseFloat(latVal);
+        const lng = parseFloat(lngVal);
+        const minLat = 20.95;
+        const maxLat = 21.30;
+        const minLng = 94.70;
+        const maxLng = 95.05;
+        return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+    };
+
     const handleSearchChange = (selectedOption) => {
         if (selectedOption) {
+            // Only accept selections inside Bagan
+            if (!isInsideBagan(selectedOption.value.lat, selectedOption.value.lng)) {
+                alert('Please select a location inside Bagan.');
+                return;
+            }
+
             setSearchValue(selectedOption);
             setLat(selectedOption.value.lat);
             setLng(selectedOption.value.lng);
