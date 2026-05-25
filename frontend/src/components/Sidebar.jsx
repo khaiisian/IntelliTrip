@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from "../auth/AuthContext.jsx";
+import { BrandLogo } from "./BrandLogo.jsx";
 
 const Sidebar = () => {
     const location = useLocation();
@@ -42,9 +43,12 @@ const Sidebar = () => {
         >
             {/* Header Section */}
             <div className="px-5 py-5 border-b border-white/10 flex-shrink-0">
-                <h1 className="text-xl font-bold text-white tracking-tight">
-                    IntelliTrip
-                </h1>
+                <BrandLogo
+                    size="sm"
+                    textSize="text-xl"
+                    dotBorder="border-indigo-800"
+                    light
+                />
                 <p className="text-xs text-indigo-200 mt-1 uppercase tracking-wider">
                     Admin Panel
                 </p>

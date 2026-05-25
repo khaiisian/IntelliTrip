@@ -4,6 +4,8 @@ const { CreateUserRequest, UpdateUserRequest, LoginUserRequest, RegisterUserRequ
 const generateCode = require('../utils/generateCode');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const fs = require('fs');
+const path = require('path');
 
 exports.getUsers = async () => {
     const users = await userRepo.findAll();
@@ -163,10 +165,32 @@ exports.updateUser = async (code, payload) => {
         delete request.password;
     }
 
-    if (request.profile_image !== undefined && request.profile_image !== null) {
-        request.profile_image = request.profile_image.trim();
-        if (request.profile_image.length > 255)
-            throw { status: false, statusCode: 400, message: 'Profile image URL must be 255 characters or less' };
+    // profile_image is expected to be either null or a path string (e.g. /uploads/profile-images/xxx.jpg)
+    if (request.profile_image !== undefined) {
+        if (request.profile_image === null) {
+            // remove image request
+        } else {
+            request.profile_image = request.profile_image.trim();
+            if (request.profile_image.length > 255)
+                throw { status: false, statusCode: 400, message: 'Profile image URL must be 255 characters or less' };
+        }
+    }
+
+    // If profile_image is set (new path) or explicitly null (remove), handle file deletion of old image
+    if (request.profile_image !== undefined) {
+        const oldImage = existing.profile_image;
+        // Only attempt to delete files that are stored in uploads folder (start with /uploads/profile-images)
+        if (oldImage && typeof oldImage === 'string' && oldImage.startsWith('/uploads/profile-images/')) {
+            try {
+                // remove leading slash and resolve to project root
+                const rel = oldImage.replace(/^\/+/, '');
+                const fullPath = path.resolve(__dirname, '..', '..', rel);
+                if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+            } catch (err) {
+                // log and continue
+                console.error('Failed to remove old profile image:', err.message);
+            }
+        }
     }
 
     const user = await userRepo.update(code, request);

@@ -11,9 +11,10 @@ export const ProfilePage = () => {
         email: '',
         password: '',
         confirmPassword: '',
-        profile_image: '',
     });
     const [imagePreview, setImagePreview] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [removeImageFlag, setRemoveImageFlag] = useState(false);
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -26,9 +27,13 @@ export const ProfilePage = () => {
             email: user.email || '',
             password: '',
             confirmPassword: '',
-            profile_image: user.profile_image || '',
         });
-        setImagePreview(user.profile_image || '');
+        const getImageUrl = (img) => {
+            if (!img) return '';
+            if (img.startsWith('http')) return img;
+            return `${import.meta.env.VITE_API_URL}${img}`;
+        };
+        setImagePreview(getImageUrl(user.profile_image || ''));
     }, [user]);
 
     const initials = (form.user_name || user?.user_name || 'U').charAt(0).toUpperCase();
@@ -64,17 +69,14 @@ export const ProfilePage = () => {
             setErrorMessage('Only JPG, PNG or WEBP images are allowed');
             return;
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImagePreview(reader.result);
-            setForm(prev => ({ ...prev, profile_image: reader.result }));
-        };
-        reader.readAsDataURL(file);
+        setSelectedFile(file);
+        setImagePreview(URL.createObjectURL(file));
         setErrorMessage('');
     };
     const removeImage = () => {
         setImagePreview('');
-        setForm(prev => ({ ...prev, profile_image: '' }));
+        setSelectedFile(null);
+        setRemoveImageFlag(true);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -85,13 +87,14 @@ export const ProfilePage = () => {
         setErrorMessage('');
         setSuccessMessage('');
         try {
-            const payload = {
-                user_name: form.user_name.trim(),
-                email: form.email.trim(),
-                profile_image: form.profile_image || null,
-            };
-            if (form.password) payload.password = form.password;
-            await updateProfile(payload);
+            const formData = new FormData();
+            formData.append('user_name', form.user_name.trim());
+            formData.append('email', form.email.trim());
+            if (form.password) formData.append('password', form.password);
+            if (selectedFile) formData.append('profile_image', selectedFile);
+            if (removeImageFlag) formData.append('remove_image', 'true');
+
+            await updateProfile(formData);
             await refreshUser();
             setForm(prev => ({ ...prev, password: '', confirmPassword: '' }));
             setSuccessMessage('Profile updated successfully!');
@@ -106,10 +109,7 @@ export const ProfilePage = () => {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-10 text-center">
-                    <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-full px-4 py-1.5 mb-4 shadow-sm">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span className="text-xs font-medium text-slate-600">Account & Security</span>
-                    </div>
+                   
                     <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] bg-clip-text text-transparent">
                         Profile Settings
                     </h1>

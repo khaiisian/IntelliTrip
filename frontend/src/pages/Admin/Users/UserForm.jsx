@@ -23,6 +23,7 @@ export const UserForm = ({
     const [submitting, setSubmitting] = useState(false);
     const [passwordError, setPasswordError] = useState("");
     const [imagePreview, setImagePreview] = useState(null);
+    const [selectedFile, setSelectedFile] = useState(null);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -31,7 +32,13 @@ export const UserForm = ({
         delete merged.confirm_password;
         setForm(merged);
         if (merged.profile_image) {
-            setImagePreview(merged.profile_image);
+            const getImageUrl = (img) => {
+                if (!img) return null;
+                if (img.startsWith('http')) return img;
+                return `${import.meta.env.VITE_API_URL}${img}`;
+            };
+
+            setImagePreview(getImageUrl(merged.profile_image));
         } else {
             setImagePreview(null);
         }
@@ -50,17 +57,9 @@ export const UserForm = ({
         const file = e.target.files[0];
         if (!file) return;
 
-        // Preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImagePreview(reader.result);
-        };
-        reader.readAsDataURL(file);
-
-        // In a real app, you'd upload the file to a server and get a URL back.
-        // For now, we store the base64 string (or you can store the file object).
-        // This example stores the base64 preview but you should replace with actual upload logic.
-        setForm((prev) => ({ ...prev, profile_image: reader.result }));
+        setSelectedFile(file);
+        setImagePreview(URL.createObjectURL(file));
+        // We do not store base64 in form; will upload file on submit when selectedFile is present
     };
 
     const triggerFileUpload = () => {
@@ -79,11 +78,11 @@ export const UserForm = ({
         setSubmitting(true);
 
         // Prepare payload - remove password if empty (for edit)
+        // If an image file was selected, send FormData; otherwise send JSON payload
         const payload = {
             user_name: form.user_name.trim(),
             email: form.email.trim(),
             role: form.role,
-            profile_image: form.profile_image || null
         };
 
         // Only include password if it's provided (not empty)
@@ -92,7 +91,19 @@ export const UserForm = ({
         }
 
         try {
-            await onSubmit(payload);
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append('user_name', payload.user_name);
+                formData.append('email', payload.email);
+                formData.append('role', payload.role);
+                if (payload.password) formData.append('password', payload.password);
+                formData.append('profile_image', selectedFile);
+                await onSubmit(formData);
+            } else {
+                // preserve existing profile_image path if present
+                payload.profile_image = form.profile_image || null;
+                await onSubmit(payload);
+            }
         } finally {
             setSubmitting(false);
         }

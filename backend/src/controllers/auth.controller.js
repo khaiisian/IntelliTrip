@@ -91,7 +91,18 @@ exports.getMe = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const user = await userService.updateCurrentUser(req.user.userCode, req.body);
+        // If a file was uploaded, set profile_image path to be stored in DB.
+        const payload = { ...req.body };
+        if (req.file) {
+            // Store accessible path starting with /uploads
+            payload.profile_image = `/uploads/profile-images/${req.file.filename}`;
+        }
+        // Support removing image via a flag sent from frontend
+        if (payload.remove_image === 'true' || payload.remove_image === true) {
+            payload.profile_image = null;
+        }
+
+        const user = await userService.updateCurrentUser(req.user.userCode, payload);
 
         return sendResponse(res, {
             data: user,

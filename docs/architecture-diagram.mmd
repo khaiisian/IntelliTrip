@@ -1,0 +1,67 @@
+flowchart LR
+    %% IntelliTrip System Architecture
+
+    subgraph Presentation["Presentation Layer"]
+        UI["React / Vite Frontend"]
+        Pages["User and Admin Pages"]
+        Maps["Leaflet Map UI"]
+        Axios["Axios API Client"]
+
+        UI --> Pages
+        Pages --> Maps
+        Pages --> Axios
+    end
+
+    subgraph API["API Layer"]
+        Express["Express App"]
+        Routes["Routes"]
+        Middleware["Auth / CORS / Cookie Middleware"]
+        Controllers["Controllers"]
+        RequestModels["Request / Response Models"]
+
+        Express --> Middleware
+        Express --> Routes
+        Routes --> Controllers
+        Controllers --> RequestModels
+    end
+
+    subgraph Service["Service / Business Logic Layer"]
+        TripServices["Trip, User, Auth, Attraction Services"]
+        ItineraryService["Itinerary Service"]
+        Planner["Itinerary Planner\nBeam Search Scheduling"]
+        Scoring["Scoring Service"]
+        Routing["Routing Service"]
+        Validation["Validation and Recalculation Logic"]
+
+        ItineraryService --> Planner
+        ItineraryService --> Scoring
+        Planner --> Routing
+        ItineraryService --> Validation
+        TripServices --> Validation
+    end
+
+    subgraph Data["Data Access Layer"]
+        Repositories["Repository Modules"]
+        Prisma["Prisma ORM"]
+        Database[("Relational Database")]
+
+        Repositories --> Prisma
+        Prisma --> Database
+    end
+
+    subgraph External["External Services"]
+        ORS["OpenRouteService API\nTravel Time / Directions"]
+        OSM["OpenStreetMap Tiles"]
+        Nominatim["Nominatim Geocoding\nSearch / Reverse Geocoding"]
+    end
+
+    Axios -- "HTTP / JSON requests" --> Express
+    Controllers -- "service calls" --> TripServices
+    Controllers -- "service calls" --> ItineraryService
+    TripServices -- "data queries" --> Repositories
+    ItineraryService -- "data queries" --> Repositories
+    Routing -- "route requests" --> ORS
+    Maps -- "map tiles" --> OSM
+    Maps -- "location lookup" --> Nominatim
+
+    Express -- "JSON responses" --> Axios

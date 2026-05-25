@@ -100,7 +100,9 @@ exports.getMe = async (req, res) => {
 
 exports.createUser = async (req, res) => {
     try {
-        const user = await userService.createUser(req.body);
+        const payload = { ...req.body };
+        if (req.file) payload.profile_image = `/uploads/profile-images/${req.file.filename}`;
+        const user = await userService.createUser(payload);
         return sendResponse(res, {
             statusCode: 201,
             data: user,
@@ -118,7 +120,10 @@ exports.createUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
     try {
-        const user = await userService.updateUser(req.params.code, req.body);
+        const payload = { ...req.body };
+        if (req.file) payload.profile_image = `/uploads/profile-images/${req.file.filename}`;
+        if (payload.remove_image === 'true' || payload.remove_image === true) payload.profile_image = null;
+        const user = await userService.updateUser(req.params.code, payload);
         return sendResponse(res, {
             data: user,
             message: "User is updated successfully."

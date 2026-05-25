@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getUserByCode, updateUser } from "../../../api/user.api.js";
 import { UserForm } from "./UserForm.jsx";
@@ -16,7 +16,11 @@ export const EditUserPage = () => {
                 setLoading(true);
                 setError("");
                 const res = await getUserByCode(code);
-                const user = res.data.data;
+                const user = res?.data;
+
+                if (!user) {
+                    throw new Error("User not found");
+                }
 
                 setInitialValues({
                     user_name: user.user_name || "",

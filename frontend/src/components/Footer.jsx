@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { BrandLogo } from "./BrandLogo.jsx";
 
 export const Footer = () => {
     const currentYear = new Date().getFullYear();
@@ -20,13 +21,13 @@ export const Footer = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-4">
                         <Link to="/" className="inline-flex items-center gap-2 group">
-                            <div className="relative">
-                                <div className="w-10 h-10 bg-[#1E3A8A] rounded-xl group-hover:rotate-6 transition-transform duration-300 shadow-md"></div>
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#F59E0B] rounded-full border-2 border-slate-900"></div>
-                            </div>
-                            <span className="text-2xl font-bold text-white">
-                                IntelliTrip
-                            </span>
+                            <BrandLogo
+                                size="lg"
+                                textSize="text-2xl"
+                                dotBorder="border-slate-900"
+                                light
+                                markClassName="group-hover:rotate-6 transition-transform duration-300"
+                            />
                         </Link>
                         <p className="text-sm leading-6 text-gray-300 max-w-sm">
                             Plan smarter routes, organize trip details, and keep every itinerary ready for your next Myanmar adventure.

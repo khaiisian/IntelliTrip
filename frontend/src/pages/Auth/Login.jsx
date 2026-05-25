@@ -5,6 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { ButtonSpinner } from "../../components/LoadingSpinner.jsx";
 import { FormErrorMessage } from "../../components/ErrorMessage.jsx";
+import { BrandLogo } from "../../components/BrandLogo.jsx";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -49,11 +50,8 @@ export default function Login() {
                         <div className="w-2 h-2 bg-[#F59E0B] rounded-full animate-pulse"></div>
                         <span className="text-sm font-medium text-gray-600">Welcome back to</span>
                     </div>
-
-                    <h1 className="text-5xl font-bold">
-                        <span className="text-[#1E3A8A]">Wander</span>
-                        <span className="text-[#F59E0B]">Plan</span>
-                    </h1>
+<br />
+                    <BrandLogo size="lg" textSize="text-5xl" />
 
                     <p className="text-xl text-gray-600 leading-relaxed">
                         Your personal travel companion. Plan amazing journeys, discover hidden gems, and create unforgettable memories.
@@ -154,20 +152,6 @@ export default function Login() {
                                 </div>
                             </div>
 
-                            {/* Forgot Password Action */}
-                            <div className="flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => alert('Password reset is not available yet. Please contact support.')}
-                                    className="text-sm text-[#06B6D4] hover:text-[#1E3A8A] transition-colors font-medium flex items-center gap-1"
-                                >
-                                    Forgot password?
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
-                            </div>
-
                             {/* Submit Button */}
                             <button
                                 type="submit"
@@ -192,7 +176,7 @@ export default function Login() {
                                     <div className="w-full border-t border-gray-200"></div>
                                 </div>
                                 <div className="relative flex justify-center text-sm">
-                                    <span className="px-4 bg-white text-gray-500">New to WanderPlan?</span>
+                                    <span className="px-4 bg-white text-gray-500">New to IntelliTrip?</span>
                                 </div>
                             </div>
 

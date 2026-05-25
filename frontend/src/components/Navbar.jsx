@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useNavigate, NavLink } from 'react-router-dom'
+import { BrandLogo } from './BrandLogo.jsx'
 
 export const Navbar = () => {
     const { user, logout, isAuthenticated } = useAuth();
@@ -52,14 +53,11 @@ export const Navbar = () => {
                             onClick={handleBrandClick}
                             className="flex items-center space-x-2 cursor-pointer group"
                         >
-                            <div className="relative">
-                                {/* Single solid blue background instead of gradient */}
-                                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-[#1E3A8A] rounded-lg transform group-hover:rotate-6 transition-all duration-300"></div>
-                                <div className="absolute -top-1 -right-1 w-2 h-2 lg:w-3 lg:h-3 bg-[#F59E0B] rounded-full border-2 border-white"></div>
-                            </div>
-                            <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] bg-clip-text text-transparent">
-                                IntelliTrip
-                            </span>
+                            <BrandLogo
+                                size="lg"
+                                textSize="text-xl lg:text-2xl"
+                                markClassName="transform group-hover:rotate-6 transition-all duration-300"
+                            />
                         </div>
 
                         {/* Desktop Navigation - Minimal but elegant */}
@@ -141,8 +139,8 @@ export const Navbar = () => {
                                         {/* Solid blue avatar background */}
                                         <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-[#1E3A8A] flex items-center justify-center ring-2 ring-offset-2 ring-[#1E3A8A]/20 group-hover:ring-[#1E3A8A] transition-all duration-300 overflow-hidden">
                                             {user.profile_image ? (
-                                                <img src={user.profile_image} alt={user.user_name || 'User'} className="w-full h-full object-cover" />
-                                            ) : (
+                                                    <img src={(user.profile_image.startsWith('http') ? user.profile_image : `${import.meta.env.VITE_API_URL}${user.profile_image}`)} alt={user.user_name || 'User'} className="w-full h-full object-cover" />
+                                                ) : (
                                                 <span className="text-white font-semibold text-sm lg:text-base">
                                                     {user.user_name ? user.user_name.charAt(0).toUpperCase() : 'U'}
                                                 </span>

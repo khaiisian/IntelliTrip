@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="620" viewBox="0 0 1480 620">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .layer { fill: #f8fbff; stroke: #2563eb; stroke-width: 2; rx: 22; }
+      .box { fill: #ffffff; stroke: #2563eb; stroke-width: 1.5; rx: 8; }
+      .external { fill: #fffdf7; stroke: #d97706; stroke-width: 1.5; rx: 8; }
+      .db { fill: #ffffff; stroke: #2563eb; stroke-width: 2; }
+      .title { font: 700 20px Arial, sans-serif; fill: #1d4ed8; }
+      .text { font: 15px Arial, sans-serif; fill: #1e40af; }
+      .small { font: 13px Arial, sans-serif; fill: #1e40af; }
+      .extTitle { font: 700 17px Arial, sans-serif; fill: #b45309; }
+      .arrow { stroke: #2563eb; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .arrowText { font: 13px Arial, sans-serif; fill: #1d4ed8; }
+    </style>
+  </defs>
+
+  <rect x="20" y="40" width="245" height="500" class="layer"/>
+  <text x="142" y="85" text-anchor="middle" class="title">Presentation Layer</text>
+  <rect x="50" y="125" width="185" height="60" class="box"/>
+  <text x="142" y="150" text-anchor="middle" class="text">React / Vite</text>
+  <text x="142" y="170" text-anchor="middle" class="small">User and Admin UI</text>
+  <rect x="50" y="215" width="185" height="70" class="box"/>
+  <text x="142" y="242" text-anchor="middle" class="text">Input Forms</text>
+  <text x="142" y="263" text-anchor="middle" class="small">Display Itinerary</text>
+  <rect x="50" y="315" width="185" height="70" class="box"/>
+  <text x="142" y="342" text-anchor="middle" class="text">Leaflet Map UI</text>
+  <text x="142" y="363" text-anchor="middle" class="small">Markers and Routes</text>
+  <rect x="50" y="415" width="185" height="60" class="box"/>
+  <text x="142" y="440" text-anchor="middle" class="text">Axios API Client</text>
+  <text x="142" y="460" text-anchor="middle" class="small">Token + HTTP Calls</text>
+
+  <rect x="340" y="40" width="245" height="500" class="layer"/>
+  <text x="462" y="85" text-anchor="middle" class="title">API Layer</text>
+  <rect x="370" y="125" width="185" height="60" class="box"/>
+  <text x="462" y="150" text-anchor="middle" class="text">Express App</text>
+  <text x="462" y="170" text-anchor="middle" class="small">CORS + JSON + Cookies</text>
+  <rect x="370" y="215" width="185" height="60" class="box"/>
+  <text x="462" y="240" text-anchor="middle" class="text">Routes</text>
+  <text x="462" y="260" text-anchor="middle" class="small">REST Endpoints</text>
+  <rect x="370" y="305" width="185" height="70" class="box"/>
+  <text x="462" y="332" text-anchor="middle" class="text">Controllers</text>
+  <text x="462" y="353" text-anchor="middle" class="small">Request / Response</text>
+  <rect x="370" y="405" width="185" height="60" class="box"/>
+  <text x="462" y="430" text-anchor="middle" class="text">Middleware</text>
+  <text x="462" y="450" text-anchor="middle" class="small">Authentication</text>
+
+  <rect x="660" y="40" width="280" height="500" class="layer"/>
+  <text x="800" y="78" text-anchor="middle" class="title">Service / Business</text>
+  <text x="800" y="102" text-anchor="middle" class="title">Logic Layer</text>
+  <rect x="695" y="135" width="210" height="68" class="box"/>
+  <text x="800" y="162" text-anchor="middle" class="text">Core Services</text>
+  <text x="800" y="183" text-anchor="middle" class="small">Trips, Auth, Attractions</text>
+  <rect x="695" y="230" width="210" height="78" class="box"/>
+  <text x="800" y="258" text-anchor="middle" class="text">Itinerary Service</text>
+  <text x="800" y="279" text-anchor="middle" class="small">Generate, Save, Update</text>
+  <rect x="695" y="335" width="210" height="88" class="box"/>
+  <text x="800" y="362" text-anchor="middle" class="text">Itinerary Planner</text>
+  <text x="800" y="383" text-anchor="middle" class="small">Beam Search Scheduling</text>
+  <text x="800" y="403" text-anchor="middle" class="small">Scoring + Routing</text>
+  <rect x="695" y="455" width="210" height="55" class="box"/>
+  <text x="800" y="480" text-anchor="middle" class="text">Validation</text>
+  <text x="800" y="500" text-anchor="middle" class="small">Recalculate Itinerary</text>
+
+  <rect x="1015" y="40" width="245" height="500" class="layer"/>
+  <text x="1138" y="85" text-anchor="middle" class="title">Data Access Layer</text>
+  <rect x="1045" y="135" width="185" height="65" class="box"/>
+  <text x="1138" y="162" text-anchor="middle" class="text">Repositories</text>
+  <text x="1138" y="183" text-anchor="middle" class="small">CRUD Queries</text>
+  <rect x="1045" y="245" width="185" height="60" class="box"/>
+  <text x="1138" y="270" text-anchor="middle" class="text">Prisma ORM</text>
+  <text x="1138" y="290" text-anchor="middle" class="small">Database Client</text>
+  <ellipse cx="1138" cy="385" rx="95" ry="35" class="db"/>
+  <path d="M1043 385 v55 c0 19 43 35 95 35 s95 -16 95 -35 v-55" class="db"/>
+  <text x="1138" y="392" text-anchor="middle" class="text">Database</text>
+  <text x="1138" y="440" text-anchor="middle" class="small">Trips, Users, Attractions,</text>
+  <text x="1138" y="459" text-anchor="middle" class="small">Schedules, Itineraries</text>
+
+  <rect x="1310" y="40" width="145" height="500" class="layer"/>
+  <text x="1382" y="80" text-anchor="middle" class="title">External</text>
+  <text x="1382" y="104" text-anchor="middle" class="title">Services</text>
+  <rect x="1328" y="145" width="110" height="78" class="external"/>
+  <text x="1383" y="172" text-anchor="middle" class="extTitle">OpenRoute</text>
+  <text x="1383" y="192" text-anchor="middle" class="extTitle">Service</text>
+  <text x="1383" y="211" text-anchor="middle" class="small">Travel Time</text>
+  <rect x="1328" y="275" width="110" height="70" class="external"/>
+  <text x="1383" y="303" text-anchor="middle" class="extTitle">OpenStreet</text>
+  <text x="1383" y="323" text-anchor="middle" class="extTitle">Map</text>
+  <rect x="1328" y="395" width="110" height="78" class="external"/>
+  <text x="1383" y="423" text-anchor="middle" class="extTitle">Nominatim</text>
+  <text x="1383" y="444" text-anchor="middle" class="small">Geocoding</text>
+
+  <path d="M265 445 H340" class="arrow"/>
+  <text x="302" y="433" text-anchor="middle" class="arrowText">HTTP Request</text>
+  <path d="M340 470 H265" class="arrow"/>
+  <text x="302" y="490" text-anchor="middle" class="arrowText">JSON Response</text>
+
+  <path d="M585 340 H660" class="arrow"/>
+  <text x="622" y="328" text-anchor="middle" class="arrowText">Service Calls</text>
+
+  <path d="M940 275 H1015" class="arrow"/>
+  <text x="978" y="263" text-anchor="middle" class="arrowText">Data Queries</text>
+  <path d="M1015 300 H940" class="arrow"/>
+  <text x="978" y="320" text-anchor="middle" class="arrowText">Query Results</text>
+
+  <path d="M905 380 C1010 565 1240 565 1328 185" class="arrow"/>
+  <text x="1170" y="563" text-anchor="middle" class="arrowText">Routing API Requests</text>
+  <path d="M235 350 C520 585 1020 585 1328 310" class="arrow"/>
+  <text x="780" y="598" text-anchor="middle" class="arrowText">Map Tiles</text>
+  <path d="M235 250 C560 20 1040 20 1328 435" class="arrow"/>
+  <text x="780" y="24" text-anchor="middle" class="arrowText">Location Search / Reverse Geocoding</text>
+</svg>

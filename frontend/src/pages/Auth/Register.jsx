@@ -5,12 +5,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext.jsx";
 import { ButtonSpinner } from "../../components/LoadingSpinner.jsx";
 import { FormErrorMessage } from "../../components/ErrorMessage.jsx";
+import { BrandLogo } from "../../components/BrandLogo.jsx";
 
 const Register = () => {
     const [form, setForm] = useState({
         user_name: "",
         email: "",
         password: "",
+        confirmPassword: "",
     })
 
     const { login } = useAuth();
@@ -25,11 +27,21 @@ const Register = () => {
 
     const submit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError("");
 
+        if (form.password !== form.confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+
         try {
-            const res = await register(form);
+            setLoading(true);
+            const payload = {
+                user_name: form.user_name,
+                email: form.email,
+                password: form.password,
+            };
+            const res = await register(payload);
             login(res.data.data)
             navigate("/home");
         } catch (err) {
@@ -51,6 +63,10 @@ const Register = () => {
             <div className="max-w-5xl w-full grid md:grid-cols-5 gap-6">
                 {/* Left Side - Benefits */}
                 <div className="md:col-span-2 space-y-4">
+                    <div className="mb-6">
+                        <BrandLogo size="lg" textSize="text-5xl" />
+                    </div>
+
                     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-full bg-[#1E3A8A]/10 flex items-center justify-center">
@@ -174,6 +190,29 @@ const Register = () => {
                                     />
                                 </div>
                                 <p className="text-xs text-gray-500">Minimum 8 characters</p>
+                            </div>
+
+                            {/* Confirm Password Field with icon */}
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                                    Confirm Password <span className="text-red-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </span>
+                                    <input
+                                        name="confirmPassword"
+                                        type="password"
+                                        placeholder="Confirm your password"
+                                        value={form.confirmPassword}
+                                        onChange={handleChange}
+                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#1E3A8A] focus:ring-4 focus:ring-[#1E3A8A]/10 transition-all duration-200 outline-none"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             {/* Terms */}
