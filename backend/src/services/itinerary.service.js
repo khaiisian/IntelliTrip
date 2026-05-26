@@ -214,7 +214,9 @@ exports.getSavedItinerary = async (tripCode) => {
             duration_minutes: durationMinutes,
             cost: Number(attraction.cost || 0),
             experienceScore: scoringService.computeExperienceScore(attractionExperiences, item.visit_start_time),
-            is_best_time: item.attraction_id ? isWithinBestTime(attraction, item.visit_start_time) : false
+            is_best_time: item.attraction_id
+                ? isWithinBestTime({ ...attraction, experiences: attractionExperiences }, item.visit_start_time)
+                : false
         };
     });
 
@@ -874,11 +876,19 @@ exports.recalculateAndValidateItinerary = async (tripCode, currentItinerary, act
         const validation = validateItinerary(updated, trip, tripDays);
 
         // Format times for the response (keep Date objects internally)
-        const formattedItinerary = updated.map(item => ({
-            ...item,
-            visit_start_time: formatTime(item.visit_start_time),
-            visit_end_time: formatTime(item.visit_end_time)
-        }));
+        const formattedItinerary = updated.map(item => {
+            const attractionExperiences = experiences.filter(e => e.attraction_id === item.attraction_id);
+
+            return {
+                ...item,
+                visit_start_time: formatTime(item.visit_start_time),
+                visit_end_time: formatTime(item.visit_end_time),
+                experienceScore: scoringService.computeExperienceScore(attractionExperiences, item.visit_start_time),
+                is_best_time: item.attraction_id
+                    ? isWithinBestTime({ ...item, experiences: attractionExperiences }, item.visit_start_time)
+                    : false
+            };
+        });
 
         const formattedFreeTime = filteredFreeTime.map(g => ({
             ...g,

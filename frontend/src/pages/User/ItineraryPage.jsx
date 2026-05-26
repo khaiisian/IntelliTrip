@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { generateItinerary, saveItinerary, updateItinerary, getSavedItinerary, recalculateItinerary } from '../../api/itinerary.api';
@@ -118,6 +118,21 @@ const createEndIcon = () => {
         iconSize: [36, 36],
         iconAnchor: [18, 18],
     });
+};
+
+const FitRouteBounds = ({ positions }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!positions || positions.length === 0) return;
+
+        const bounds = L.latLngBounds(positions);
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
+        }
+    }, [map, positions]);
+
+    return null;
 };
 
 // Fix for default marker icons in Leaflet
@@ -288,15 +303,7 @@ export const TripItineraryPage = () => {
         fullPolylinePositions.push(...polylinePositions);
 
         if (hasValidEnd) {
-            const lastAttraction = polylinePositions.length > 0
-                ? polylinePositions[polylinePositions.length - 1]
-                : null;
-            const isEndSameAsLast = lastAttraction &&
-                Math.abs(lastAttraction[0] - endLat) < 0.000001 &&
-                Math.abs(lastAttraction[1] - endLng) < 0.000001;
-            if (!isEndSameAsLast) {
-                fullPolylinePositions.push([endLat, endLng]);
-            }
+            fullPolylinePositions.push([endLat, endLng]);
         }
 
         const uniquePolyline = [];
@@ -320,6 +327,16 @@ export const TripItineraryPage = () => {
 
             const coords = uniquePolyline.map(p => [p[1], p[0]]);
             const result = await getRouteGeometry(coords);
+            if (Array.isArray(result) && result.length > 1 && hasValidEnd) {
+                const lastPoint = result[result.length - 1];
+                const routeEndsAtEndpoint =
+                    Math.abs(lastPoint[0] - endLat) < 0.000001 &&
+                    Math.abs(lastPoint[1] - endLng) < 0.000001;
+
+                setRouteGeometry(routeEndsAtEndpoint ? result : [...result, [endLat, endLng]]);
+                return;
+            }
+
             setRouteGeometry(result || []);
         };
 
@@ -867,6 +884,7 @@ const handleExportPDF = async () => {
 
     const hasValidStart = !isNaN(startLat) && !isNaN(startLng);
     const hasValidEnd = !isNaN(endLat) && !isNaN(endLng);
+    const shouldShowEndMarker = hasValidEnd;
 
     // Group attractions by coordinates (rounded to 6 decimals)
     const coordGroups = new Map();
@@ -910,17 +928,9 @@ const handleExportPDF = async () => {
     // Add all attraction points
     fullPolylinePositions.push(...polylinePositions);
 
-    // Add end point if valid and not already the same as the last attraction
+    // Add end point explicitly so the route always includes the final leg
     if (hasValidEnd) {
-        const lastAttraction = polylinePositions.length > 0
-            ? polylinePositions[polylinePositions.length - 1]
-            : null;
-        const isEndSameAsLast = lastAttraction &&
-            Math.abs(lastAttraction[0] - endLat) < 0.000001 &&
-            Math.abs(lastAttraction[1] - endLng) < 0.000001;
-        if (!isEndSameAsLast) {
-            fullPolylinePositions.push([endLat, endLng]);
-        }
+        fullPolylinePositions.push([endLat, endLng]);
     }
 
     // Remove consecutive duplicate points
@@ -937,6 +947,8 @@ const handleExportPDF = async () => {
         }
     }
     // --------------------------------------------------------------
+
+    const routeLinePositions = routeGeometry.length > 1 ? routeGeometry : uniquePolyline;
 
     const mapCenter = groupedMarkers.length > 0
         ? [groupedMarkers[0].lat, groupedMarkers[0].lng]
@@ -1125,6 +1137,7 @@ const handleExportPDF = async () => {
                                         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
                                     />
+                                    <FitRouteBounds positions={routeLinePositions} />
 
                                     {/* Start location marker */}
                                     {hasValidStart && (
@@ -1137,8 +1150,8 @@ const handleExportPDF = async () => {
                                     )}
 
                                     {/* End location marker */}
-                                    {hasValidEnd && (
-                                        <Marker position={[endLat, endLng]} icon={createEndIcon()}>
+                                    {shouldShowEndMarker && (
+                                        <Marker position={[endLat, endLng]} icon={createEndIcon()} zIndexOffset={1000}>
                                             <Popup>
                                                 <div className="font-medium text-sm text-red-700">🏁 Trip End</div>
                                                 <div className="text-xs text-gray-500">Final destination</div>
@@ -1164,9 +1177,9 @@ const handleExportPDF = async () => {
                                     ))}
 
                                     {/* Polyline for the complete route */}
-                                    {routeGeometry.length > 1 && (
+                                    {routeLinePositions.length > 1 && (
                                         <Polyline
-                                            positions={routeGeometry}
+                                            positions={routeLinePositions}
                                             color="#F59E0B"
                                             weight={4}
                                             opacity={0.8}
