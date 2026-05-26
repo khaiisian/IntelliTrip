@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getUsers, deleteUser } from "../../../api/user.api.js";
+import { DeleteConfirmationModal } from "../../../components/DeleteConfirmationModal.jsx";
 
 const formatMoney = (value) => Number(value || 0).toLocaleString();
 
@@ -9,6 +10,8 @@ export const UserListPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const [pagination, setPagination] = useState({
         current_page: 1,
         per_page: 10
@@ -55,15 +58,18 @@ export const UserListPage = () => {
         setPagination((prev) => ({ ...prev, current_page: page }));
     };
 
-    const handleDelete = async (code) => {
-        if (!confirm("Are you sure you want to delete this user?")) return;
-
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            await deleteUser(code);
+            setDeleting(true);
+            await deleteUser(deleteTarget.user_code);
             await fetchUsers();
+            setDeleteTarget(null);
         } catch (err) {
             console.error(err);
             setError(err?.response?.data?.message || "Failed to delete user");
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -155,7 +161,7 @@ export const UserListPage = () => {
                                                     Edit
                                                 </Link>
                                                 <button
-                                                    onClick={() => handleDelete(user.user_code)}
+                                                    onClick={() => setDeleteTarget(user)}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm"
                                                 >
                                                     Delete
@@ -203,6 +209,15 @@ export const UserListPage = () => {
                         </div>
                     </div>
                 )}
+                <DeleteConfirmationModal
+                    isOpen={Boolean(deleteTarget)}
+                    title="Delete User"
+                    itemName={deleteTarget?.user_name}
+                    confirmLabel="Delete User"
+                    loading={deleting}
+                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={confirmDelete}
+                />
             </div>
         </div>
     );

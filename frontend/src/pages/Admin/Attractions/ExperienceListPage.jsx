@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { getExperiencesByAttraction, createExperience, updateExperience, deleteExperience } from "../../../api/experience.api.js";
 import { getAttractionByCode, getAttractions } from "../../../api/attraction.api.js";
 import ExperienceForm from "./ExperienceForm.jsx";
+import { DeleteConfirmationModal } from "../../../components/DeleteConfirmationModal.jsx";
 
 // Helper: extract HH:MM from a time value
 const formatTime = (value) => {
@@ -24,6 +25,8 @@ export const ExperienceListPage = () => {
     const [showForm, setShowForm] = useState(false);
     const [editing, setEditing] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         const fetch = async () => {
@@ -94,16 +97,20 @@ export const ExperienceListPage = () => {
         }
     };
 
-    const handleDelete = async (code) => {
-        if (!confirm('Delete this experience?')) return;
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            await deleteExperience(code);
+            setDeleting(true);
+            await deleteExperience(deleteTarget.code);
             const aid = attractionId || attraction?.id;
             const res = await getExperiencesByAttraction(aid);
             setExperiences(res.data.data || []);
+            setDeleteTarget(null);
         } catch (err) {
             console.error(err);
             alert('Failed to delete');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -184,7 +191,7 @@ export const ExperienceListPage = () => {
                                                     Edit
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(exp.code)}
+                                                    onClick={() => setDeleteTarget(exp)}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm"
                                                 >
                                                     Delete
@@ -230,6 +237,15 @@ export const ExperienceListPage = () => {
                     </div>
                 </div>
             )}
+            <DeleteConfirmationModal
+                isOpen={Boolean(deleteTarget)}
+                title="Delete Experience"
+                itemName={deleteTarget?.type}
+                confirmLabel="Delete Experience"
+                loading={deleting}
+                onCancel={() => setDeleteTarget(null)}
+                onConfirm={confirmDelete}
+            />
         </div>
     );
 };

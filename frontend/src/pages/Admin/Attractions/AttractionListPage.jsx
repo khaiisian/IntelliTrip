@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteAttraction, getAttractions } from "../../../api/attraction.api.js";
+import { DeleteConfirmationModal } from "../../../components/DeleteConfirmationModal.jsx";
 
 const formatTime = (value) => {
     if (!value) return "-";
@@ -17,6 +18,8 @@ export const AttractionListPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const [pagination, setPagination] = useState({
         current_page: 1,
         per_page: 10
@@ -62,15 +65,18 @@ export const AttractionListPage = () => {
         setPagination((prev) => ({ ...prev, current_page: page }));
     };
 
-    const handleDelete = async (code) => {
-        if (!confirm("Are you sure you want to delete this attraction?")) return;
-
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            await deleteAttraction(code);
+            setDeleting(true);
+            await deleteAttraction(deleteTarget.code);
             await fetchAttractions();
+            setDeleteTarget(null);
         } catch (err) {
             console.error(err);
             setError(err?.response?.data?.message || "Failed to delete attraction");
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -175,7 +181,7 @@ export const AttractionListPage = () => {
                                                     Experiences
                                                 </Link>
                                                 <button
-                                                    onClick={() => handleDelete(attraction.code)}
+                                                    onClick={() => setDeleteTarget(attraction)}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm"
                                                 >
                                                     Delete
@@ -223,6 +229,15 @@ export const AttractionListPage = () => {
                         </div>
                     </div>
                 )}
+                <DeleteConfirmationModal
+                    isOpen={Boolean(deleteTarget)}
+                    title="Delete Attraction"
+                    itemName={deleteTarget?.name}
+                    confirmLabel="Delete Attraction"
+                    loading={deleting}
+                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={confirmDelete}
+                />
             </div>
         </div>
     );

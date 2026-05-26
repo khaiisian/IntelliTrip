@@ -28,8 +28,8 @@ export const UserForm = ({
 
     useEffect(() => {
         const merged = { ...emptyForm, ...(initialValues || {}) };
-        // Remove confirm_password from initialValues (it's not stored)
-        delete merged.confirm_password;
+        merged.password = "";
+        merged.confirm_password = "";
         setForm(merged);
         if (merged.profile_image) {
             const getImageUrl = (img) => {
@@ -69,8 +69,11 @@ export const UserForm = ({
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validate passwords match
-        if (form.password !== form.confirm_password) {
+        const passwordProvided = form.password.trim() !== "";
+        const confirmPasswordProvided = form.confirm_password.trim() !== "";
+
+        // On edit, password is optional. Only validate matching when changing it.
+        if ((passwordProvided || confirmPasswordProvided) && form.password !== form.confirm_password) {
             setPasswordError("Passwords do not match");
             return;
         }
@@ -86,7 +89,7 @@ export const UserForm = ({
         };
 
         // Only include password if it's provided (not empty)
-        if (form.password && form.password.trim() !== "") {
+        if (passwordProvided) {
             payload.password = form.password;
         }
 

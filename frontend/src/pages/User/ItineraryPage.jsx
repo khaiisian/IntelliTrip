@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { generateItinerary, saveItinerary, updateItinerary, getSavedItinerary, recalculateItinerary } from '../../api/itinerary.api';
 import { getRouteGeometry } from '../../api/route.api';
+import { DeleteConfirmationModal } from '../../components/DeleteConfirmationModal.jsx';
 import jsPDF from 'jspdf';
 
 const createNumberedIcon = (number) => {
@@ -188,12 +189,12 @@ export const TripItineraryPage = () => {
     const [recalcLoadingItem, setRecalcLoadingItem] = useState(null);
     const [recalcError, setRecalcError] = useState('');
     const [lockedItems, setLockedItems] = useState([]);
-    const [changeDayFor, setChangeDayFor] = useState(null);
-    const [changeDayValues, setChangeDayValues] = useState({ newDay: '1', newPosition: '0' });
     const [editTimeFor, setEditTimeFor] = useState(null);
     const [editStartValue, setEditStartValue] = useState('');
     const [editDurationValue, setEditDurationValue] = useState('');
     const [showFillForGap, setShowFillForGap] = useState(null);
+    const [itineraryListMode, setItineraryListMode] = useState('scroll');
+    const [deleteTargetCode, setDeleteTargetCode] = useState(null);
 
     const workingByDay = useMemo(() => {
         const grouped = {};
@@ -340,7 +341,6 @@ export const TripItineraryPage = () => {
         if (currentDay === newDay) {
             const currentIndex = (workingByDay[String(currentDay)] || []).findIndex(it => getItemCode(it) === itemCode);
             if (currentIndex === newPosition) {
-                setChangeDayFor(null);
                 return;
             }
         }
@@ -384,13 +384,7 @@ export const TripItineraryPage = () => {
             setRecalcError(err?.response?.data?.message || 'Failed to recalculate itinerary');
         } finally {
             setRecalcLoadingItem(null);
-            setChangeDayFor(null);
         }
-    };
-
-    const handleOpenChangeDay = (itemCode) => {
-        setChangeDayFor(itemCode);
-        setChangeDayValues({ newDay: selectedDay, newPosition: '0' });
     };
 
     const handleRecalculateDelete = async (itemCode) => {
@@ -434,6 +428,15 @@ export const TripItineraryPage = () => {
         } finally {
             setRecalcLoadingItem(null);
         }
+    };
+
+    const deleteTargetItem = workingItinerary.find((item) => getItemCode(item) === deleteTargetCode);
+
+    const confirmRecalculateDelete = async () => {
+        if (!deleteTargetCode) return;
+        const itemCode = deleteTargetCode;
+        setDeleteTargetCode(null);
+        await handleRecalculateDelete(itemCode);
     };
 
     const handleOpenEditTime = (itemCode, currentStartTime, currentDuration) => {
@@ -564,21 +567,7 @@ export const TripItineraryPage = () => {
         }
     };
 
-    const handleChangeDayInput = (field, value) => {
-        setChangeDayValues((prev) => ({ ...prev, [field]: value }));
-    };
-
-    const handleApplyChangeDay = async (itemCode) => {
-        const newDay = Number(changeDayValues.newDay);
-        const targetDayItems = workingByDay[String(newDay)] || [];
-        const maxPosition = targetDayItems.length;
-        const parsedPosition = Math.max(0, Math.min(maxPosition, Number(changeDayValues.newPosition)));
-        await handleRecalculateMove(itemCode, newDay, parsedPosition);
-    };
-
-    const handleCancelChangeDay = () => {
-        setChangeDayFor(null);
-    };
+    
 
     const handlePersistItinerary = async () => {
         if (!itineraryData) return;
@@ -1197,19 +1186,49 @@ const handleExportPDF = async () => {
                     </div>
 
                     {/* List Section (Cards) - Enhanced */}
-                    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden h-[500px] flex flex-col">
-                        <div className="bg-gradient-to-r from-[#06B6D4] to-[#1E3A8A] px-5 py-3.5 flex items-center justify-between">
+                    <div className={`bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col ${
+                        itineraryListMode === 'scroll' ? 'h-[500px]' : ''
+                    }`}>
+                        <div className="bg-gradient-to-r from-[#06B6D4] to-[#1E3A8A] px-5 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-base font-bold text-white flex items-center gap-2">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                 </svg>
                                 Day {selectedDay} Itinerary
                             </h3>
-                            <div className="text-[10px] text-white/70 bg-white/10 px-2 py-1 rounded-full">
-                                {currentDayAttractions.length} stops
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="text-[10px] text-white/70 bg-white/10 px-2 py-1 rounded-full">
+                                    {currentDayAttractions.length} stops
+                                </div>
+                                <div className="inline-flex rounded-full bg-white/15 p-1 text-[11px] font-semibold text-white shadow-inner">
+                                    <button
+                                        type="button"
+                                        onClick={() => setItineraryListMode('scroll')}
+                                        className={`rounded-full px-3 py-1 transition-all duration-200 ${
+                                            itineraryListMode === 'scroll'
+                                                ? 'bg-white text-[#1E3A8A] shadow-sm'
+                                                : 'text-white/80 hover:text-white'
+                                        }`}
+                                    >
+                                        Scroll
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setItineraryListMode('all')}
+                                        className={`rounded-full px-3 py-1 transition-all duration-200 ${
+                                            itineraryListMode === 'all'
+                                                ? 'bg-white text-[#1E3A8A] shadow-sm'
+                                                : 'text-white/80 hover:text-white'
+                                        }`}
+                                    >
+                                        Show all
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 custom-scroll">
+                        <div className={`p-4 custom-scroll ${
+                            itineraryListMode === 'scroll' ? 'flex-1 overflow-y-auto' : 'overflow-visible'
+                        }`}>
                             <div className="space-y-3">
                                 {currentDayAttractions.map((att, idx) => {
                                     const duration = getDuration(att.visit_start_time, att.visit_end_time);
@@ -1283,13 +1302,7 @@ const handleExportPDF = async () => {
                                                     >
                                                         ▼ Down
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleOpenChangeDay(getItemCode(att))}
-                                                        disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
-                                                        className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-gray-700 border-gray-200 hover:border-[#1E3A8A]/30"
-                                                    >
-                                                        ⟳ Change day
-                                                    </button>
+                                                    
                                                     <button
                                                         onClick={() => handleOpenEditTime(getItemCode(att), att.visit_start_time, att.duration_minutes)}
                                                         disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
@@ -1305,7 +1318,7 @@ const handleExportPDF = async () => {
                                                         {lockedItems.includes(getItemCode(att)) ? '🔓 Unlock' : '🔒 Lock'}
                                                     </button>
                                                     <button
-                                                        onClick={() => handleRecalculateDelete(getItemCode(att))}
+                                                        onClick={() => setDeleteTargetCode(getItemCode(att))}
                                                         disabled={recalcLoadingItem !== null || lockedItems.includes(getItemCode(att))}
                                                         className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 bg-white text-red-600 border-red-200 hover:bg-red-50"
                                                     >
@@ -1317,54 +1330,7 @@ const handleExportPDF = async () => {
                                                         </span>
                                                     )}
                                                 </div>
-                                                {changeDayFor === getItemCode(att) && (
-                                                    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-3">
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                            <label className="space-y-2 text-xs text-gray-600">
-                                                                <span className="font-semibold">Target Day</span>
-                                                                <select
-                                                                    value={changeDayValues.newDay}
-                                                                    onChange={(e) => handleChangeDayInput('newDay', e.target.value)}
-                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
-                                                                >
-                                                                    {days.map((day) => (
-                                                                        <option key={day} value={day}>Day {day}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </label>
-                                                            <label className="space-y-2 text-xs text-gray-600">
-                                                                <span className="font-semibold">Position</span>
-                                                                <input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    max={(workingByDay[changeDayValues.newDay] || []).length}
-                                                                    value={changeDayValues.newPosition}
-                                                                    onChange={(e) => handleChangeDayInput('newPosition', e.target.value)}
-                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
-                                                                />
-                                                            </label>
-                                                            <div className="flex items-end gap-2">
-                                                                <button
-                                                                    onClick={() => handleApplyChangeDay(getItemCode(att))}
-                                                                    disabled={recalcLoadingItem !== null}
-                                                                    className="w-full rounded-xl bg-[#1E3A8A] px-3 py-2 text-xs font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-[#164e63]"
-                                                                >
-                                                                    Apply
-                                                                </button>
-                                                                <button
-                                                                    onClick={handleCancelChangeDay}
-                                                                    type="button"
-                                                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-[#9CA3AF]"
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        {recalcError && (
-                                                            <p className="mt-3 text-xs text-red-600">{recalcError}</p>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                
                                                 {editTimeFor === getItemCode(att) && (
                                                     <div className="rounded-2xl border border-gray-200 bg-slate-50 p-3 mt-3">
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1518,6 +1484,16 @@ const handleExportPDF = async () => {
                     )}
                 </div>
             </div>
+
+            <DeleteConfirmationModal
+                isOpen={Boolean(deleteTargetCode)}
+                title="Delete Itinerary Item"
+                itemName={deleteTargetItem?.attraction_name}
+                confirmLabel="Delete Item"
+                loading={recalcLoadingItem === deleteTargetCode}
+                onCancel={() => setDeleteTargetCode(null)}
+                onConfirm={confirmRecalculateDelete}
+            />
 
             {/* Add custom scrollbar styles */}
             <style jsx>{`

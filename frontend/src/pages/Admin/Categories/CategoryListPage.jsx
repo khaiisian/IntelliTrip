@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteCategory, getCategories } from "../../../api/category.api.js";
+import { DeleteConfirmationModal } from "../../../components/DeleteConfirmationModal.jsx";
 
 export const CategoryListPage = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const [pagination, setPagination] = useState({ current_page: 1, per_page: 10 });
 
     const fetchCategories = async () => {
@@ -42,14 +45,18 @@ export const CategoryListPage = () => {
     const start = (currentPage - 1) * pagination.per_page;
     const visible = filtered.slice(start, start + pagination.per_page);
 
-    const handleDelete = async (code) => {
-        if (!confirm('Are you sure you want to delete this category?')) return;
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
         try {
-            await deleteCategory(code);
+            setDeleting(true);
+            await deleteCategory(deleteTarget.category_code);
             await fetchCategories();
+            setDeleteTarget(null);
         } catch (err) {
             console.error(err);
             setError(err?.response?.data?.message || 'Failed to delete category');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -132,7 +139,7 @@ export const CategoryListPage = () => {
                                                     Edit
                                                 </Link>
                                                 <button
-                                                    onClick={() => handleDelete(c.category_code)}
+                                                    onClick={() => setDeleteTarget(c)}
                                                     className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition text-sm"
                                                 >
                                                     Delete
@@ -177,6 +184,15 @@ export const CategoryListPage = () => {
                         </div>
                     </div>
                 )}
+                <DeleteConfirmationModal
+                    isOpen={Boolean(deleteTarget)}
+                    title="Delete Category"
+                    itemName={deleteTarget?.category_name}
+                    confirmLabel="Delete Category"
+                    loading={deleting}
+                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={confirmDelete}
+                />
             </div>
         </div>
     );

@@ -12,8 +12,9 @@ L.Icon.Default.mergeOptions({
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const LocationMarker = ({ setLat, setLng, setPlaceName }) => {
+const LocationMarker = ({ setLat, setLng, setPlaceName, initialLat, initialLng, initialPlaceName }) => {
     const [position, setPosition] = useState(null);
+    // combine map access and click handler into single useMapEvents
 
     // Bagan bounding box
     const isInsideBagan = (lat, lng) => {
@@ -24,7 +25,7 @@ const LocationMarker = ({ setLat, setLng, setPlaceName }) => {
         return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
     };
 
-    useMapEvents({
+    const map = useMapEvents({
         click: async (e) => {
             const { lat, lng } = e.latlng;
 
@@ -53,6 +54,41 @@ const LocationMarker = ({ setLat, setLng, setPlaceName }) => {
         },
     });
 
+    // Initialize position from props when editing an existing attraction
+    React.useEffect(() => {
+        const hasInitial = initialLat !== undefined && initialLng !== undefined && initialLat !== null && initialLng !== null && initialLat !== '' && initialLng !== '';
+        if (!hasInitial) return;
+        const latNum = Number(initialLat);
+        const lngNum = Number(initialLng);
+        if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+            setPosition([latNum, lngNum]);
+            setLat(latNum);
+            setLng(lngNum);
+            if (initialPlaceName) {
+                setPlaceName(initialPlaceName);
+            } else {
+                // try reverse geocoding if place name not provided
+                (async () => {
+                    try {
+                        const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latNum}&lon=${lngNum}&format=json`
+                        );
+                        const data = await res.json();
+                        setPlaceName(data.display_name || '');
+                    } catch (err) {
+                        console.error('Reverse geocoding error:', err);
+                        setPlaceName('');
+                    }
+                })();
+            }
+            try {
+                map.setView([latNum, lngNum], 13);
+            } catch (err) {
+                // ignore if map not ready
+            }
+        }
+    }, [initialLat, initialLng, initialPlaceName]);
+
     return position === null ? null : <Marker position={position} />;
 };
 
@@ -62,7 +98,7 @@ export default function MapPicker({ lat, setLat, lng, setLng, placeName, setPlac
             {/* Map Container with Custom Styling */}
             <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-lg">
                 <MapContainer
-                    center={[21.1702, 94.8679]} // default center: Bagan
+                    center={lat && lng ? [Number(lat), Number(lng)] : [21.1702, 94.8679]}
                     zoom={13}
                     style={{ height: "450px", width: "100%" }}
                     className="z-0"
@@ -71,7 +107,14 @@ export default function MapPicker({ lat, setLat, lng, setLng, placeName, setPlac
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     />
-                    <LocationMarker setLat={setLat} setLng={setLng} setPlaceName={setPlaceName} />
+                    <LocationMarker
+                        setLat={setLat}
+                        setLng={setLng}
+                        setPlaceName={setPlaceName}
+                        initialLat={lat}
+                        initialLng={lng}
+                        initialPlaceName={placeName}
+                    />
                     <SearchControl />
                 </MapContainer>
 
